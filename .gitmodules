@@ -1,0 +1,9 @@
+[submodule "rvss2021_detector"]
+	path = rvss2021_detector
+	url = https://github.com/Zheyu-Zhuang/rvss2021_detector.git
+[submodule "detector"]
+	path = detector
+	url = https://github.com/Zheyu-Zhuang/rvss2021_detector.git
+[submodule "network"]
+	path = network
+	url = https://github.com/Zheyu-Zhuang/rvss2021_detector.git
