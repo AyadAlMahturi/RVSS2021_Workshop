@@ -1,6 +1,6 @@
 from pynput.keyboard import Key, Listener, KeyCode
 import cv2
-from pibot_sim import PenguinPi
+from .pibot_sim import PenguinPi
 
 class Keyboard:
     wheel_vel_forward = 20

@@ -1,8 +1,8 @@
 import numpy as np
 import os
 import sys
-
-from .control.pibot_sim import PenguinPi()
+sys.path.insert(0, "../control")
+from pibot_sim import PenguinPi
 
 ppi = PenguinPi()
 
@@ -91,7 +91,7 @@ def calibrateBaseline(scale):
 
 if __name__ == "__main__":
     # calibrate pibot scale and baseline
-    dataDir = "{}/wheel_calibration/".format(os.getcwd())
+    dataDir = "{}/param/".format(os.getcwd())
 
     print('Calibrating PiBot scale...\n')
     scale = calibrateWheelRadius()

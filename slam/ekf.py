@@ -1,9 +1,9 @@
 import numpy as np
-from slam_map import SlamMap
+from mapping_utils import MappingUtils
 import matplotlib.patches as patches
 import cv2
 
-class Slam:
+class EKF:
     # Implementation of an EKF for SLAM
     # The state is ordered as [x; y; theta; l1x; l1y; ...; lnx; lny]
 
@@ -25,7 +25,8 @@ class Slam:
         return int(self.markers.shape[1])
 
     def get_state_vector(self):
-        state = np.concatenate((self.robot.state, np.reshape(self.markers, (-1,1), order='F')), axis=0)
+        state = np.concatenate(
+            (self.robot.state, np.reshape(self.markers, (-1,1), order='F')), axis=0)
         return state
     
     def set_state_vector(self, state):
@@ -34,8 +35,8 @@ class Slam:
     
     def save_map(self, fname="slam_map.txt"):
         if self.number_landmarks() > 0:
-            slam_map = SlamMap(self.markers, self.P[3:,3:], self.taglist)
-            slam_map.save(fname)
+            utils = MappingUtils(self.markers, self.P[3:,3:], self.taglist)
+            utils.save(fname)
         
     
     # EKF functions
@@ -171,11 +172,13 @@ class Slam:
                 lmi = self.markers[:,i]
                 Plmi = self.P[3+2*i:3+2*(i+1),3+2*i:3+2*(i+1)]
                 axes_len, angle = self.make_ellipse(lmi, Plmi)
-                canvas = cv2.ellipse(canvas, coor_, (int(axes_len[0]*m2pixel), int(axes_len[1]*m2pixel)),
+                canvas = cv2.ellipse(canvas, coor_, 
+                    (int(axes_len[0]*m2pixel), int(axes_len[1]*m2pixel)),
                     angle, 0, 360, (244, 69, 96), 1)
                 # print text
                 text_coor_ = (coor_[0]+5, coor_[1])
-                cv2.putText(canvas, f'{self.taglist[i]}', text_coor_, font, 0.5, (0, 30, 56), 1, cv2.LINE_AA)
+                cv2.putText(canvas, f'{self.taglist[i]}',
+                 text_coor_, font, 0.5, (0, 30, 56), 1, cv2.LINE_AA)
         return canvas
     
     @staticmethod
@@ -186,12 +189,5 @@ class Slam:
         e_vecs = e_vecs[:, idx]
         alpha = np.sqrt(4.605)
         axes_len = e_vals*2*alpha
-        # print(axes_len)
         angle = np.arctan(e_vecs[0, 0]/e_vecs[1, 0])
         return (axes_len[0], axes_len[1]), angle
-
-        # t = np.linspace(0, 2 * np.pi)
-        # ellipse = (e_vecs @ np.sqrt(np.diag(e_vals))) @ np.block([[np.cos(t)],[np.sin(t)]])
-        # ellipse = ellipse + x.reshape(-1,1)
-
-        # return ellipse

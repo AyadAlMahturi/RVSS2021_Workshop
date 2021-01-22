@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 import os
 import sys
 
-import penguinPiC
-ppi = penguinPiC.PenguinPi()
+sys.path.insert(0, "../control")
+from pibot_sim import PenguinPi
 
 
 def camera_calibration(dataDir):
@@ -96,7 +96,7 @@ def image_collection(dataDir, images_to_collect):
 
 if __name__ == "__main__":
     currentDir = os.getcwd()
-    dataDir = "{}/camera_calibration/".format(currentDir)
+    dataDir = "{}/param/".format(currentDir)
     if not os.path.exists(dataDir):
         os.makedirs(dataDir)
     images_to_collect = 20

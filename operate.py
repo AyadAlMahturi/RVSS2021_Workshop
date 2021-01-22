@@ -12,13 +12,13 @@ import control.keyboardControl as Keyboard
 
 # Import SLAM components
 sys.path.insert(0, "{}/slam".format(os.getcwd()))
-from slam.slam import Slam
+from slam.ekf import EKF
 from slam.robot import Robot
 import slam.aruco_detector as aruco
 import slam.measure as measure
 
 # Import network components
-sys.path.insert(0,"{}/network".format(os.getcwd()))
+sys.path.insert(0,"{}/network/".format(os.getcwd()))
 sys.path.insert(0,"{}/network/scripts".format(os.getcwd()))
 
 from network.scripts.detector import Detector
@@ -45,7 +45,7 @@ class Operate:
         # SLAM subsystem
         self.pibot = Robot(baseline, scale, camera_matrix, dist_coeffs)
         self.aruco_det = aruco.aruco_detector(self.pibot, marker_length = 0.07)
-        self.slam = Slam(self.pibot)
+        self.slam = EKF(self.pibot)
         
         # Optionally record input data to a dataset
         if writeData:

@@ -1,7 +1,7 @@
 import numpy as np
 import json
 
-class SlamMap:
+class MappingUtils:
     def __init__(self, markers = np.zeros((2,0)), covariance = np.zeros((0,0)), taglist = []):
         self.markers = markers
         self.covariance = covariance
