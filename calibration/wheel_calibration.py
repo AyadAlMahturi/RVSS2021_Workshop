@@ -2,9 +2,9 @@ import numpy as np
 import os
 import sys
 
-import penguinPiC
-ppi = penguinPiC.PenguinPi()
+from .control.pibot_sim import PenguinPi()
 
+ppi = PenguinPi()
 
 def calibrateWheelRadius():
     # Compute the robot scale parameter using a range of wheel velocities.

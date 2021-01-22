@@ -1,7 +1,6 @@
 from pynput.keyboard import Key, Listener, KeyCode
 import cv2
-import numpy as np
-import penguinPiC
+from pibot_sim import PenguinPi
 
 class Keyboard:
     wheel_vel_forward = 20
@@ -88,7 +87,7 @@ class Keyboard:
             return False
 
 if __name__ == "__main__":
-    ppi = penguinPiC.PenguinPi()
+    ppi = pibot_sim.PenguinPi()
 
     keyboard_control = Keyboard(ppi)
 

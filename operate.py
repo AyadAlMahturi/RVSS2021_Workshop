@@ -1,15 +1,12 @@
 import numpy as np
-import matplotlib
 import matplotlib.pyplot as plt
 
-import matplotlib.gridspec as gridspec
-import matplotlib.patches as label_box
 import cv2 
 import os, sys
 import time
 # Import integration components
 sys.path.insert(0, "{}/integration".format(os.getcwd()))
-import integration.penguinPiC
+from control.pibot_sim import PenguinPi
 import integration.DatasetHandler as dh
 import control.keyboardControl as Keyboard
 
@@ -18,17 +15,14 @@ sys.path.insert(0, "{}/slam".format(os.getcwd()))
 from slam.slam import Slam
 from slam.robot import Robot
 import slam.aruco_detector as aruco
-import slam.measure
+import slam.measure as measure
 
 # Import network components
 sys.path.insert(0,"{}/network".format(os.getcwd()))
 sys.path.insert(0,"{}/network/scripts".format(os.getcwd()))
 
 from network.scripts.detector import Detector
-from PIL import Image
-import io
 
-plt.ion()
 
 class Operate:
     def __init__(self, datadir, ppi, writeData=False):
@@ -143,37 +137,27 @@ class Operate:
 
 
 if __name__ == "__main__":   
-    # plt.ion()
     currentDir = os.getcwd()
     datadir = "{}/calibration/param/".format(currentDir)
     # Use either a real or simulated penguinpi
     #ppi = integration.penguinPiC.PenguinPi(ip = '192.168.50.1')
-    ppi = integration.penguinPiC.PenguinPi()    
+    ppi = PenguinPi()
     # ppi = dh.DatasetPlayer("test")
     # Set up the integrated system
     operate = Operate(datadir, ppi, writeData=False)
     # Enter the main loop
-    img_buffer = None
     while 1:
         operate.control()
-        #tick = time.time()
-        operate.take_pic()
-        # if img_buffer is None:
-        #     img_buffer = operate.img
-        # else:
-        #     print(np.sum(img_buffer-operate.img))
-        #     img_buffer = operate.img
-        # print(f'{1/(time.time()-tick):.2f} FPS take_pic')
-        # print(f'{1/(time.time()-tick):.2f} FPS')
         # tick = time.time()
+        operate.take_pic()
         operate.update_slam()
-        #print(f'{1/(time.time()-tick):.2f} FPS slam')
-        #tick = time.time()
+        # print(f'{1/(time.time()-tick):.2f} FPS slam')
+        # tick = time.time()
         operate.detect_fruit()
-        #print(f'{1/(time.time()-tick):.2f} FPS detect')
+        # print(f'{1/(time.time()-tick):.2f} FPS detect')
         tick = time.time()
         operate.update_gui()
-        print(f'{1/(time.time()-tick):.2f} FPS Plt')
+        # print(f'{1/(time.time()-tick):.2f} FPS Plt')
 
 
 

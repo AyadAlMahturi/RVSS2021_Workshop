@@ -1,3 +1,7 @@
 /.vscode
 /system_output
 *.tar
+.DS_Store
+*.pyc
+.idea
+*/__pycache__/
