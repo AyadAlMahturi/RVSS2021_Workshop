@@ -1,6 +1,6 @@
 import numpy as np
 import cv2
-import Measurements
+import measure
 
 class aruco_detector:
     def __init__(self, robot, marker_length=0.07):
@@ -13,8 +13,10 @@ class aruco_detector:
     
     def detect_marker_positions(self, img):
         # Perform detection
-        corners, ids, rejected = cv2.aruco.detectMarkers(img, self.aruco_dict, parameters=self.aruco_params)
-        rvecs, tvecs, _ = cv2.aruco.estimatePoseSingleMarkers(corners, self.marker_length, self.camera_matrix, self.distortion_params)
+        corners, ids, rejected = cv2.aruco.detectMarkers(
+            img, self.aruco_dict, parameters=self.aruco_params)
+        rvecs, tvecs, _ = cv2.aruco.estimatePoseSingleMarkers(
+            corners, self.marker_length, self.camera_matrix, self.distortion_params)
 
         if ids is None:
             return [], img
@@ -34,7 +36,7 @@ class aruco_detector:
             lm_bff2d = np.block([[lm_tvecs[2,:]],[-lm_tvecs[0,:]]])
             lm_bff2d = np.mean(lm_bff2d, axis=1).reshape(-1,1)
 
-            lm_measurement = Measurements.MarkerMeasurement(lm_bff2d, idi)
+            lm_measurement = measure.Marker(lm_bff2d, idi)
             measurements.append(lm_measurement)
         
         # Draw markers on image copy

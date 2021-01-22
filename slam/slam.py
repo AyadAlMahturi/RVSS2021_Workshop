@@ -1,5 +1,5 @@
 import numpy as np
-import SlamMap
+from slam_map import SlamMap
 import matplotlib.patches as patches
 import cv2
 
@@ -34,7 +34,7 @@ class Slam:
     
     def save_map(self, fname="slam_map.txt"):
         if self.number_landmarks() > 0:
-            slam_map = SlamMap.SlamMap(self.markers, self.P[3:,3:], self.taglist)
+            slam_map = SlamMap(self.markers, self.P[3:,3:], self.taglist)
             slam_map.save(fname)
         
     
