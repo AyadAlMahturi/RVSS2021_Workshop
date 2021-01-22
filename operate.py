@@ -61,7 +61,8 @@ class Operate:
         self.slam_view = plt.subplot(122)
         # TODO: reduce legend size
         self.timer = time.time()
-        self.canvas = None
+        self.count_down = 180
+        self.start_time = time.time()
 
 
     def __del__(self):
@@ -108,23 +109,38 @@ class Operate:
             # TODO: change output to zeros
             return None
 
-    def update_gui(self):
-        font = cv2.FONT_HERSHEY_SIMPLEX 
+    def update_gui(self):        
         pad = 40
         bg_rgb = np.array([79, 106, 143]).reshape(1, 1, 3)
-        if self.canvas is None:
-            self.canvas = np.ones((480+3*pad, 640+3*pad, 3))*bg_rgb
-        self.canvas = self.canvas.astype(np.uint8)
+        canvas = np.ones((480+3*pad, 640+3*pad, 3))*bg_rgb
+        canvas = canvas.astype(np.uint8)
+        # 
+        font = cv2.FONT_HERSHEY_SIMPLEX 
+        cv2.putText(canvas, "PiBot Cam", (138, 31),
+                    font, 0.8, (200, 200, 200), thickness=2)
+        cv2.putText(canvas, "SLAM Map", (492, 31),
+                    font, 0.8, (200, 200, 200), thickness=2)
+        cv2.putText(canvas, "Fruit Detection", (110, 310),
+                    font, 0.8, (200, 200, 200), thickness=2)
+        time_remain = self.count_down - time.time() + self.start_time
+        if time_remain > 0:
+            time_remain = f'Count Down: {time_remain:03.0f}s'
+        elif int(time_remain)%2 == 0:
+            time_remain = "Time Is Up !!!"
+        else:
+            time_remain = ""
+        cv2.putText(canvas, time_remain, (490, 590),
+                    font, 0.8, (200, 200, 200), thickness=2)
         # slam view
-        self.canvas[pad:480+2*pad, 2*pad+320:2*pad+2*320, :] = \
+        canvas[pad:480+2*pad, 2*pad+320:2*pad+2*320, :] = \
             self.slam.draw_slam_state(res=(320, 480+pad))
         # robot view
-        self.canvas[pad:240+pad, pad:320+pad, :] = \
+        canvas[pad:240+pad, pad:320+pad, :] = \
              cv2.resize(self.aruco_img, (320, 240))
         # prediction view
-        self.canvas[(240+2*pad):(240+2*pad+240), pad:(320+pad), :] = \
+        canvas[(240+2*pad):(240+2*pad+240), pad:(320+pad), :] = \
                 cv2.resize(self.colour_map, (320, 240), cv2.INTER_NEAREST)
-        out = cv2.cvtColor(self.canvas.astype(np.uint8), cv2.COLOR_RGB2BGR)
+        out = cv2.cvtColor(canvas.astype(np.uint8), cv2.COLOR_RGB2BGR)
         cv2.imshow('In the Jungle', out)
         cv2.waitKey(1)
 

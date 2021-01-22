@@ -20,8 +20,7 @@ import numpy as np
 # a Service
 # Get model_name
 # For every object within the scene shuffle its pose based on engineered poses.
-TABLE_OFFSET = 0.372
-
+import rospkg
 
 class SceneManager:
     def __init__(self):
@@ -30,8 +29,9 @@ class SceneManager:
 				'aruco6':1, 'aruco7':1, 'aruco8':1, 'aruco9':1, 'aruco10':1,
 				'apple':1, 'banana':1, 'lemon':1, 'pear':1}
         print(self.obj_class_dict)
-        urdf_lib_path = os.path.expanduser(
-            '~/catkin_ws/src/penguinpi_gazebo/models/aruco/urdf/')
+        rospack = rospkg.RosPack()
+        workspace_path =  rospack.get_path('penguinpi_gazebo')
+        urdf_lib_path = workspace_path + '/models/aruco/urdf/'
         self.urdf_dict = {}
         for key in self.obj_class_dict:
             urdf_file_name = urdf_lib_path + key + '.urdf'
