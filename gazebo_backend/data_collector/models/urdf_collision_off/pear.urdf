@@ -1,0 +1,21 @@
+<robot name="pear">
+  <link name="pear">
+    <inertial>
+      <origin xyz="0 0 0" />
+      <mass value="0.6" />
+      <inertia  ixx="0.001" ixy="0.0"  ixz="0.0"  iyy="0.001"  iyz="0.0"  izz="0.0568" />
+    </inertial>
+    <visual>
+      <origin xyz="0.0 0 0.0"/>
+      <geometry>
+        <mesh filename="package://penguinpi_gazebo/models/pear/textured.dae"/>
+      </geometry>
+    </visual>
+    <!-- <collision>
+      <origin xyz="0.0 0 0.0"/>
+      <geometry>
+        <mesh filename="package://rvss_gazebo/models/meshes/pear/textured.dae"/>
+      </geometry>
+    </collision> -->
+  </link>
+</robot>

@@ -1,0 +1,5 @@
+name,label,urdf_path
+apple,1,models/urdf_collision_off/apple.urdf
+banana,2,models/urdf_collision_off/banana.urdf
+pear,3,models/urdf_collision_off/pear.urdf
+lemon,4,models/urdf_collision_off/lemon.urdf

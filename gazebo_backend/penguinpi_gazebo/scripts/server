@@ -1,0 +1,415 @@
+#!/usr/bin/env python
+import rospy
+import cv2
+import cv_bridge
+import os
+import io
+import time
+import math
+import json
+import rospkg
+import math
+from sensor_msgs.msg import JointState
+from sensor_msgs.msg import Image
+
+from geometry_msgs.msg import Twist
+
+bridge = cv_bridge.CvBridge()
+
+from flask import Flask, request, render_template, redirect, send_file
+from gevent.pywsgi import WSGIServer
+
+path = rospkg.RosPack().get_path('penguinpi_gazebo')
+
+rospy.init_node('PenguinServer', disable_signals=True)
+
+app = Flask(__name__, root_path=path)
+cmd_vel = None
+
+_speed_left = 0
+_speed_right = 0
+
+_motor_left = 0
+_motor_right = 0
+
+_encoder_left = 0
+_encoder_right = 0
+
+_encoder_left_previous = 0
+_encoder_right_previous = 0
+
+_encoder_left_initial = 0
+_encoder_right_initial = 0
+
+pose_estimator_enabled = rospy.get_param('pose_enabled', True)
+pose_estimator_rate = rospy.get_param('pose_rate', 5)
+
+MAX_STEP = 50 / pose_estimator_rate * 20 * 2
+
+_x = 0
+_y = 0
+_theta = 0
+
+W = 0.156  # lateral wheel separation
+wheel_diameter = 0.065;
+encoder_scale = math.pi * wheel_diameter /384 
+
+camera_state = {
+            "rotation": 180.0,
+            "awb_mode": 1.0,
+            "iso": -1.0,
+            "brightness": 128.0,
+            "exposure_speed": 156.0,
+            # "shutter_speed": camera.shutter_speed,
+            # "meter_mode": camera.meter_mode,
+            "zoom": -1.0,
+            "preview": "off"
+}
+
+mapping = {
+}
+
+def robot_state_json():
+    return json.dumps({
+        'encoder' : {
+            'left'  : _encoder_left,
+            'right' : _encoder_right
+        },
+        'pose' : {
+            'x'     : _x, 
+            'y'     : _y,
+            'theta' : _theta
+        }
+    })
+
+def send_velocity(speed_left=0, speed_right=0, fraction=1.0):
+    global _motor_left, _motor_right, _speed_left, _speed_right
+
+    _speed_left = speed_left * fraction
+    _speed_right = speed_right * fraction
+
+    _motor_left = _speed_left * 5.33/1000
+    _motor_right = _speed_right * 5.33/1000
+
+    msg = Twist()
+    msg.linear.x = (_motor_left + _motor_right) / 2
+    msg.angular.z = (_motor_right - _motor_left) / 0.150
+    
+    cmd_vel.publish(msg)
+
+@app.route('/', methods = ['POST', 'GET'])
+def home():
+    if request.method == 'POST':
+        if "refresh" in request.form:
+            rospy.loginfo("refresh")
+            
+        elif "test_l" in request.form:
+            send_velocity(speed_left=20)
+            rospy.sleep(2)
+            send_velocity(speed_left=0)
+            
+        elif "test_r" in request.form:
+            send_velocity(speed_right=20)
+            rospy.sleep(2)
+            send_velocity(speed_right=0)
+            
+
+    # get info about the Raspberry Pi
+    try:
+        for _ in (True,):
+            with open('/etc/os-release') as f:
+                line = f.readline()
+                distro = line.split('=')[1]
+                break
+    except:
+        distro = 'Unknown'
+
+    try:
+        with open('/proc/version') as f:
+            kernel = f.read()
+    except:
+        kernel = 'Unknown'
+
+    # render the page
+    state = {
+            "enc_l": _encoder_left,
+            "enc_r": _encoder_right,
+            "volts": '7.5',
+            "current": '0',
+            "pose_x": _x,
+            "pose_y": _y,
+            "pose_theta": _theta,
+            "model": 'gazebo sim',
+            "distro": distro,
+            "kernel": kernel,
+            "refresh": 5,
+            "camera_revision": 'imx219'
+            }
+
+    # get refresh
+    refresh = request.args.get('refresh')
+    if refresh:
+            state['refresh'] = refresh
+
+    return render_template('home.html', **state)
+
+@app.route('/camera', methods = ['POST', 'GET'])
+def camera():
+    def update_int(s):
+        if not s in request.form or s not in mapping:
+            return
+        rospy.logdebug('Checking int camera parameter %s: %s -> %s' % (s, request.form[s], camera_state[s]))
+        if float(request.form[s]) != camera_state[s]:
+            rospy.logdebug('Updating camera parameter %s' % s)
+            camera_state[s] = float(request.form[s])
+
+    def update(s):
+        if not s in request.form or s not in mapping:
+            return
+        rospy.logdebug('Checking camera parameter %s: %s -> %s' % (s, request.form[s], camera_state[s]))
+        if request.form[s] != camera_state[s]:
+            rospy.logdebug('Updating camera parameter %s' % s)
+            camera_state[s] = request.form[s] 
+            
+    if request.method == 'POST':
+        # NOTE that the request.form multidict may not contain all items
+        # in the form
+        rospy.logdebug('Camera POST' + str(request.form.to_dict(flat=False)))
+        if 'rotation' in request.form:
+            camera_state['rotation'] = float(request.form['rotation'])
+            
+    return render_template('camera.html', **camera_state)
+    
+@app.route('/camera/get', methods = ['GET'])
+def camera_get():
+    msg = rospy.wait_for_message('picam/camera/image_raw', Image)
+    img = bridge.imgmsg_to_cv2(msg, 'bgr8')
+
+    if camera_state['rotation'] != 180:
+        center = (img.shape[1] / 2, img.shape[0] / 2)
+        M = cv2.getRotationMatrix2D(center, camera_state['rotation'], 1.0)
+
+        img = cv2.warpAffine(img, M, (img.shape[1], img.shape[0]))
+
+    success, buffer = cv2.imencode('.png', img)
+    return send_file(io.BytesIO(buffer), 'image/png')
+
+@app.route('/speed', methods = ['GET', 'POST'])
+def speed():
+    try:
+        if request.method == 'POST':
+            if "Set" in request.form:
+                speed_left = max(-100, min(100, int(float(request.form['Left']))))
+                speed_right = max(-100, min(100, int(float(request.form['Right']))))
+                
+            elif "STOP" in request.form:
+                speed_left = 0
+                speed_right = 0
+
+            send_velocity(speed_left, speed_right)
+
+    except Exception as e:
+        print(str(e))
+
+    return render_template('speed.html', speed_l=_speed_left, speed_r=_speed_right);
+
+@app.route('/robot/set/velocity')
+def set_velocity():
+
+    # TODO: the trajectory could be done by the pose estimation thread
+    dt = 0.05
+
+    # coroutine to do a floating point version of xrange
+    def xfrange(start, stop, step):
+        i = 0
+        while start + i * step < stop:
+            yield start + i * step
+            i += 1
+
+    # set motor speed using GET side effects
+    speeds = request.args.get('value')
+    if speeds:
+        try:
+            motor_left, motor_right = [int(x) for x in speeds.split(',')]
+        except:
+            return 'invalid speeds', 500
+        
+        duration = request.args.get('time')
+        if duration:
+            # a duration was given
+
+            # get duration
+            try:
+                Ttotal = float(duration)
+            except:
+                return 'bad time given', 500
+
+            # get optional acceleration
+            accel = request.args.get('accel')
+            if accel:
+                try:
+                    Taccel = float(accel)
+                except:
+                    return 'bad acceleration given', 500
+            else:
+                Taccel = 0.0
+
+            # motion time must be greater than twice the acceleration time
+            if Ttotal <= Taccel*2:
+                return 'acceleration time too long', 500
+
+            if Taccel > 0:
+                # do the initial speed ramp up
+                for t in xfrange(0, Taccel, dt):
+                    send_velocity(motor_left, motor_right, t/Taccel)
+                    rospy.sleep(dt)
+            tick=time.time()
+            for t in xfrange(0, Ttotal-Taccel, dt):
+                send_velocity(motor_left, motor_right, 1.0)
+                rospy.sleep(dt)
+            
+            print(time.time()-tick)
+
+            if Taccel > 0:
+                # do the final speed ramp down
+                for t in xfrange(0, Taccel, dt):
+                    send_velocity(motor_left, motor_right, (Taccel-t)/Taccel)
+                    rospy.sleep(dt)
+
+            # all stop
+            send_velocity()
+
+        else:
+            # no duration given
+
+            send_velocity(motor_left, motor_right)
+
+    return robot_state_json()
+
+@app.route('/robot/stop')
+def stop():
+    send_velocity()
+    return robot_state_json()
+
+@app.route('/robot/pose/reset')
+def reset_pose():
+    global _x, _y, _theta
+    _x = 0
+    _y = 0
+    _theta = 0
+    return str()
+
+@app.route('/robot/hw/reset')
+def reset_encoders():
+    global _encoder_left_initial, _encoder_right_initial
+    send_velocity()
+    rospy.sleep(2)
+    _encoder_left_initial = _encoder_left
+    _encoder_right_initial = _encoder_right
+    return str()
+
+@app.route('/battery/get/voltage')
+def get_voltage():
+    return str(7500)
+
+@app.route('/battery/get/current')
+def get_current():
+    return str(0)
+
+@app.route('/led/set/state')
+def set_led():
+  return str()
+
+@app.route('/led/set/count')
+def set_led_pulse():
+  return str()
+
+@app.route('/hat/ledarray/set')
+def set_led_array():
+  return str()
+
+@app.route('/hat/screen/print')
+def screen_print():
+  return str()
+
+@app.route('/hat/screen/set')
+def screen_set():
+  return str()
+  
+@app.route('/hat/dip/get')
+def get_dip():
+  return str(0)
+
+@app.route('/hat/button/get')
+def get_button():
+  return str(0)
+
+def encoder_difference(a, b):
+  d = a - b
+  if d > 32000:
+    d = 0x10000 - d
+  elif d < -32000:
+    d += 0x10000
+  return d
+
+def update_pose():
+  global _x, _y, _theta, _encoder_left_previous, _encoder_right_previous
+  
+  dL = encoder_difference(_encoder_left, _encoder_left_previous)
+  dR = encoder_difference(_encoder_right, _encoder_right_previous)
+
+  _encoder_left_previous = _encoder_left
+  _encoder_right_previous = _encoder_right
+  
+  if abs(dL) > MAX_STEP:
+      dL = 0
+
+  if abs(dR) > MAX_STEP:
+      dR = 0
+
+  avg = encoder_scale * (dL + dR) / 2
+  diff = encoder_scale * (dL - dR)
+
+  theta_old = _theta
+  _theta += diff / W;          # update theta
+  
+  theta_avg = (_theta + theta_old)/2   # average theta over the interval
+  
+  _x += avg * math.cos(theta_avg)      # update position
+  _y += avg * math.sin(theta_avg)
+  #print('Estimated pose %f %f %f (enc=%f %f)' % (x,y,theta,left,right))
+  print(_x, _y)
+  while _theta > 2*math.pi:
+      _theta -= 2*math.pi
+  while _theta < -2*math.pi:
+      _theta += 2*math.pi
+
+if not pose_estimator_enabled:
+  estimate_pose = lambda: None
+
+def joint_state_cb(data):
+  global _encoder_left, _encoder_right
+
+  _encoder_left = int(data.position[0]) - _encoder_left_initial #Changed to 384 Documetnation on ACRV repo is likely wrong from my reading of src code. 
+  _encoder_right = int(data.position[1]) - _encoder_right_initial
+
+  update_pose()
+
+cmd_vel = rospy.Publisher('/PenguinPi/cmd_vel', Twist, queue_size=1)
+rospy.Subscriber("/PenguinPi/joint_states", JointState, joint_state_cb)
+
+serverport = 40000
+# app.jinja_env.lstrip_blocks = True
+# app.jinja_env.trim_blocks = True
+# app.jinja_env.line_statement_prefix = '#'
+# app.run('0.0.0.0', serverport, debug=True)
+http_server = WSGIServer(('', serverport), app)
+http_server.serve_forever()
+
+
+#app.jinja_env.lstrip_blocks = True
+#app.jinja_env.trim_blocks = True
+#app.jinja_env.line_statement_prefix = '#'
+#app.run('0.0.0.0', 8080, debug=True)
+## http_server = WSGIServer(('', 8080), app)
+## http_server.serve_forever()

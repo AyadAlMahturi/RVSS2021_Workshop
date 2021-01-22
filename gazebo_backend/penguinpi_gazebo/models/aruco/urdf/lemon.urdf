@@ -1,0 +1,21 @@
+<robot name="lemon">
+  <link name="lemon">
+    <inertial>
+      <origin xyz="-0.010770 0.021014 0.026209" />
+      <mass value="0.6" />
+      <inertia  ixx="0.763685" ixy="0.645470"  ixz="-0.012384"  iyy="-0.431093"  iyz="-0.831289"  izz="-0.555703" />
+    </inertial>
+    <visual>
+      <origin xyz="0.0 0 0.0"/>
+      <geometry>
+        <mesh filename="package://penguinpi_gazebo/models/lemon/textured.dae"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0.0 0 0.0"/>
+      <geometry>
+        <mesh filename="package://penguinpi_gazebo/models/lemon/textured.dae"/>
+      </geometry>
+    </collision>
+  </link>
+</robot>
