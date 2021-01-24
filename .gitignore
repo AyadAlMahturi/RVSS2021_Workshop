@@ -8,3 +8,6 @@
 *.pyc
 .idea
 */__pycache__/
+network/scripts/weights
+.ipynb_checkpoints/
+random_texture/

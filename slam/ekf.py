@@ -148,8 +148,9 @@ class EKF:
         robot_xy = self.robot.state[:2, 0].reshape((2, 1))
         if self.robot_init_state is None:
             self.robot_init_state = robot_xy
-        robot_xy = robot_xy - self.robot_init_state
-        lms_xy = lms_xy - self.robot_init_state
+        lms_xy = lms_xy - robot_xy
+        robot_xy = robot_xy - robot_xy
+
         # plot robot
         arrow_scale = 0.3
         end_point_x = arrow_scale*np.cos(self.robot.state[2,0]) + robot_xy[0, 0]

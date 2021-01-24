@@ -9,18 +9,30 @@ class PenguinPi:
     def __init__(self, ip, port):
         self.ip = ip
         self.port = port
+        self.default_tick = 20
+        self.turning_tick = 5
+        self.wheel_vel = [0, 0]
 
-    
+    # def update_vel(self, command):
+    #     # the input is a tupple (forward, left), 0 is stop, 
+    #     l_vel = command[0]*self.default_tick - command[1]*self.turning_tick
+    #     r_vel = command[0]*self.default_tick + command[1]*self.turning_tick
+    #     self.wheel_vel = [l_vel, r_vel]
 
-    def set_velocity(self, lvel, rvel, time=0):
+    def set_velocity(self, command, time=0):
+        l_vel = command[0]*self.default_tick - command[1]*self.turning_tick
+        r_vel = command[0]*self.default_tick + command[1]*self.turning_tick
+        self.wheel_vel = [l_vel, r_vel]
         if time == 0:
-            r = requests.get(f"http://{self.ip}:{self.port}/robot/set/velocity?value="+str(lvel)+","+str(rvel))
+            requests.get(
+                f"http://{self.ip}:{self.port}/robot/set/velocity?value="+str(l_vel)+","+str(r_vel))
         else:
             assert (time > 0), "Time must be positive."
             assert (time < 30), "Time must be less than network timeout (20s)."
-            r = requests.get("http://"+self.ip+":"+str(self.port)+"/robot/set/velocity?value="+str(lvel)+","+str(rvel)
+            requests.get(
+                "http://"+self.ip+":"+str(self.port)+"/robot/set/velocity?value="+str(l_vel)+","+str(r_vel)
                             +"&time="+str(time))
-        return lvel, rvel
+        return l_vel, r_vel
         
     def get_image(self):
         try:
