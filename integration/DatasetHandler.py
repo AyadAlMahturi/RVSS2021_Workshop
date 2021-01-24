@@ -44,7 +44,6 @@ class DatasetWriter:
         self.image_count += 1
 
 
-
 class DatasetPlayer:
     def __init__(self, dataset_name):
         self.kb_f = open(dataset_name+"/"+"keyboard.csv", 'r')
@@ -54,9 +53,6 @@ class DatasetPlayer:
         self.img_fc = csv.reader(self.img_f)
 
         self.t0 = time.time()
-    
-    def __del__(self):
-        self.f.close()
     
     def get_image(self):
         try:
