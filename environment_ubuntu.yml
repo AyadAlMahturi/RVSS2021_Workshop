@@ -1,4 +1,4 @@
-name: rvss2021
+name: rvss21
 channels:
   - pytorch
   - defaults
