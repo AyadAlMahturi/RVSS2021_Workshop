@@ -3,18 +3,12 @@
 import numpy as np
 import requests
 import cv2 
-import rospy
-import cv_bridge
-import rospkg 
 
-from sensor_msgs.msg import Image
-
-bridge = cv_bridge.CvBridge()
 
 class PenguinPi:
-    def __init__(self, ip = 'localhost'):
+    def __init__(self, ip, port):
         self.ip = ip
-        self.port = 40000
+        self.port = port
 
     def set_velocity(self, lvel, rvel, time=0):
         if time == 0:
@@ -35,10 +29,3 @@ class PenguinPi:
             print("Image retrieval timed out.")
             img = np.zeros((240,320,3), dtype=np.uint8)
         return img
-            
-    # def get_image(self):
-    #     msg = rospy.wait_for_message('picam/camera/image_raw',Image)
-    #     img = bridge.imgmsg_to_cv2(msg,'bgr8')
-    #     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    #     return img
-        

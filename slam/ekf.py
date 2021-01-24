@@ -1,6 +1,5 @@
 import numpy as np
 from mapping_utils import MappingUtils
-import matplotlib.patches as patches
 import cv2
 
 class EKF:

@@ -1,6 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
-
 import cv2 
 import os, sys
 import time
@@ -55,10 +53,6 @@ class Operate:
         self.output = dh.OutputWriter('system_output')
         #
 
-        # gui canvas
-        self.robot_view = plt.subplot(221)
-        self.infernce_view = plt.subplot(223)
-        self.slam_view = plt.subplot(122)
         # TODO: reduce legend size
         self.timer = time.time()
         self.count_down = 180
@@ -152,12 +146,19 @@ class Operate:
             self.output.write_map(self.slam)
 
 
-if __name__ == "__main__":   
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ip", metavar='', type=str, default='localhost')
+    parser.add_argument("--port", metavar='', type=int, default=40000)
+    args, _ = parser.parse_known_args()
+
     currentDir = os.getcwd()
     datadir = "{}/calibration/param/".format(currentDir)
     # Use either a real or simulated penguinpi
     #ppi = integration.penguinPiC.PenguinPi(ip = '192.168.50.1')
-    ppi = PenguinPi()
+    print(args.ip, args.port)
+    ppi = PenguinPi(args.ip, args.port)
     # ppi = dh.DatasetPlayer("test")
     # Set up the integrated system
     operate = Operate(datadir, ppi, writeData=False)
@@ -171,7 +172,7 @@ if __name__ == "__main__":
         # tick = time.time()
         operate.detect_fruit()
         # print(f'{1/(time.time()-tick):.2f} FPS detect')
-        tick = time.time()
+        # tick = time.time()
         operate.update_gui()
         # print(f'{1/(time.time()-tick):.2f} FPS Plt')
 
