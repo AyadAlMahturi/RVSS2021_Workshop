@@ -29,7 +29,7 @@ class Operate:
         self.pibot = PenguinPi(args.ip, args.port)
         self.img = np.zeros([240,320,3], dtype=np.uint8)
         self.aruco_img = np.zeros([240,320,3], dtype=np.uint8)
-        ckpt = "network/scripts/weights/pretrained_backbone/pretrained_backbone.pth.tar"
+        ckpt = "network/scripts/pretrained_weights.pth"
         self.detector = Detector(ckpt,use_gpu=False)
         self.colour_map = np.zeros([240,320,3], dtype=np.uint8)
 
