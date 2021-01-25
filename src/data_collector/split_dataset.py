@@ -5,6 +5,8 @@ from tqdm import tqdm
 import numpy as np
 import json
 import argparse
+import h5py
+from tqdm import tqdm
 
 def main(args):
     dataset_path = os.path.join('dataset', args.dataset_name)
@@ -32,13 +34,30 @@ def main(args):
         eval_indices = [int(x) for x in eval_indices]
         train_catalog = {key:dataset_catalog[key] for key in train_indices}
         eval_catalog = {key:dataset_catalog[key] for key in eval_indices}
-        with open(os.path.join(dataset_path, 'train.json'), 'w') as f_:
-            json.dump(train_catalog, f_)
-        with open(os.path.join(dataset_path, 'eval.json'), 'w') as f_:
-            json.dump(eval_catalog, f_)
+        generate_binary_file(train_catalog, 
+                             os.path.join('dataset', args.dataset_name,'train.hdf5'))
+        generate_binary_file(eval_catalog, 
+                             os.path.join('dataset', args.dataset_name,'eval.hdf5'))
     else:
         raise Exception('training ration must be between (0, 1)')
-        
+
+def generate_binary_file(dataset_catalog, save_path):
+    hf = h5py.File(save_path, 'a')
+    img_dataset = []
+    label_dataset = []
+    for data_pair in tqdm(dataset_catalog.values()):
+        img_path = os.path.join('dataset', args.dataset_name, data_pair["image"])
+        label_path = os.path.join('dataset', args.dataset_name, data_pair["label"])
+        with open(img_path, 'rb') as img_f:  # open images as python binary
+            img_binary = img_f.read()
+        with open(label_path, 'rb') as label_f:  # open images as python binary
+            label_binary = label_f.read()
+        img_dataset.append(np.asarray(img_binary))
+        label_dataset.append(np.array(label_binary))
+    hf.create_dataset('labels', data=label_dataset)
+    hf.create_dataset('images', data=img_dataset)
+    hf.close()
+
 
 if __name__ == '__main__':
     generator_parser = argparse.ArgumentParser(

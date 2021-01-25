@@ -49,9 +49,9 @@ class DataCollector:
         ts = message_filters.ApproximateTimeSynchronizer(
             [img_sub, depth_sub], 10, 0.01)
         ts.registerCallback(self.ts_callback)
-        rospy.sleep(1)
         
     def collect(self):
+        rospy.sleep(2)
         for label, sub_model_list in self.model_list.items():
             sample_per_model = int(self.args.sample_per_class/len(sub_model_list))
             depth_thresh = 2
@@ -65,11 +65,12 @@ class DataCollector:
                 for i in tqdm(range(sample_per_model),  desc=model):
                     self.shuffle_model(model, z_low=0.3, z_high=1)
                     rospy.sleep(0.1)
-                    sample_name =  "%s_%i" % (model, i)
-                    label = np.where(self.depth < depth_thresh, label, 0).astype(np.uint8)
                     if self.img is not None and self.depth is not None:
-                        cv2.imwrite(os.path.join(rgb_path, sample_name+".jpg"), self.img)
-                        cv2.imwrite(os.path.join(label_path, sample_name+"_label.png"), label)
+                        sample_name =  "%s_%i" % (model, i)
+                        label_image = np.where(self.depth < depth_thresh, label, 0).astype(np.uint8)
+                        if len(np.unique(label_image)) > 1:
+                            cv2.imwrite(os.path.join(rgb_path, sample_name+".jpg"), self.img)
+                            cv2.imwrite(os.path.join(label_path, sample_name+"_label.png"), label_image)
                 self.hide_model(model)
     
     def ts_callback(self, img_msg, depth_msg):

@@ -1,5 +1,7 @@
 import json
 import os
+import io
+import h5py
 
 import numpy as np
 import torch
@@ -22,25 +24,23 @@ class IMDB(Dataset):
                                 std=[0.229, 0.224, 0.225])]
         )
 
-        catalog_path = os.path.join(root_dir, mode + '.json')
+        catalog_path = os.path.join(root_dir, mode + '.hdf5')
         try:
             os.path.exists(catalog_path)
         except FileExistsError:
             print('catalog does not exist')
-        self.catalog = json.load(open(catalog_path))
-        self.catalog_keys = list(self.catalog.keys())
+        self.dataset = h5py.File(catalog_path, 'r')
         self.device = torch.device(
             'cuda' if torch.cuda.is_available() else 'cpu')
 
     def __len__(self):
-        return len(self.catalog)
+        return len(self.dataset['images'])
 
     def __getitem__(self, idx):
-        sample = self.catalog[self.catalog_keys[idx]]
-        image = Image.open(os.path.join(self.root_dir, sample['image']))
+        image = Image.open(io.BytesIO(self.dataset['images'][idx]))
         width, height = 256, 192
         image = image.resize((width, height))
-        label = Image.open(os.path.join(self.root_dir, sample['label']))
+        label = Image.open(io.BytesIO(self.dataset['labels'][idx]))
         reduction = 2
         label = label.resize((int(width/reduction),
                               int(height/reduction)), Image.NEAREST)

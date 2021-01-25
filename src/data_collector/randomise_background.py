@@ -20,13 +20,13 @@ def main(args):
         all_images =  os.listdir(dir_temp)
         for image_name in all_images:
             image_path = os.path.join(model, 'images', image_name)
-            label_path = os.path.join(model, 'labels', image_name[:-4]+'_mask.png')
+            label_path = os.path.join(model, 'labels', image_name[:-4]+'_label.png')
             dataset_catalog[counter] = {'image': image_path, 'label':label_path}
             counter +=1
             
     texture_catalog = {}
     texture_path = "textures/random"
-    destination_path = os.path.join('dataset', "random_texture")
+    destination_path = os.path.join('dataset', args.dataset_name+'_rand')
     # os.makedirs(destination_path)
     # os.makedirs(os.path.join(destination_path, 'images'))
     # os.makedirs(os.path.join(destination_path, 'labels'))

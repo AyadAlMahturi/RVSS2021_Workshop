@@ -5,8 +5,7 @@ import shutil
 import numpy as np
 import torch
 import torch.nn as nn
-from tqdm import tqdm
-
+import time
 import cmd_printer
 
 # torch.manual_seed(1)
@@ -45,62 +44,63 @@ class Trainer:
             model = model.train()
             loss_buff = []
             n_batches = len(train_loader)
-            with tqdm(train_loader, unit=' batches',
-                      bar_format='{l_bar}{bar:10}{r_bar}') as t_epoch:
-                for batch_idx, batch in enumerate(t_epoch):
-                    t_epoch.set_description(
-                        f'Epoch {epoch_idx}/{self.args.epochs - 1}')
-                    optimiser.zero_grad()
-                    # Forwards
-                    batch = [x.to(self.device) for x in batch]
-                    loss = model.step(batch)
-                    loss.backward()
-                    optimiser.step()
-                    loss_buff.append(loss.item())
-                    t_epoch.set_postfix(loss=f'{loss.item():.4f}')
-                    if batch_idx % self.args.log_freq == 0:
-                        self.log(
-                            f'\n[{batch_idx}/{n_batches}]: {loss.item():.4f}')
-                avg_train_loss = np.mean(loss_buff)
-                loss_eval = self.evaluate(model, eval_loader)
-                #
-                if lr_scheduler is not None:
-                    lr_scheduler.step()
-                self.loss_reduction = self.lowest_loss - loss_eval
-                if self.loss_reduction > 0:
-                    self.lowest_loss = loss_eval
-                # output to log
-                self.log(
-                    f'\n=> Training Loss: {avg_train_loss:.4f}, ' + \
-                    f'Evaluation Loss {loss_eval:.4f}')
-                self.log('\n')
-                # output to terminal
-                print(
-                    f'=> Training Loss: {avg_train_loss:.4f} , ' + \
-                    f'Evaluation Loss {loss_eval:.4f}')
-                ckpt_path = os.path.join(self.args.model_dir, 'model.pth')
-                ckpt = {'last_epoch': self.current_epoch,
-                        'weights': model.state_dict(),
-                        'optimiser': optimiser.state_dict(),
-                        'lowest_loss': self.lowest_loss
-                        }
-                with open(ckpt_path, 'wb') as f:
-                    torch.save(ckpt, f)
+            epoch_str = f'Epoch {epoch_idx:02}/{self.args.epochs - 1}'
+            start_time = time.time()
+            for batch_idx, batch in enumerate(train_loader):
+                tick = time.time()
+                optimiser.zero_grad()
+                # Forwards
+                batch = [x.to(self.device) for x in batch]
+                loss = model.step(batch)
+                loss.backward()
+                optimiser.step()
+                loss_buff.append(loss.item())
+                loss_str=f'Loss: {loss.item():.4f}'
+                progress_bar = f'{(100.0*(batch_idx+1))/n_batches:02.2f}%'
+                elapsed_time = f'{time.time()-start_time:.2f}s'
+                est_finish = f'{(n_batches - batch_idx)*(time.time()-tick):.2f}s'
+                print(f'[{epoch_str}] {loss_str} [{progress_bar}, {elapsed_time} < {est_finish}]', end='\r')
+                if batch_idx % self.args.log_freq == 0:
+                    self.log(
+                        f'\n[{batch_idx}/{n_batches}]: {loss.item():.4f}')
+            print(f'[{epoch_str}] {loss_str} [{progress_bar}, {elapsed_time} < {est_finish}]')
+            avg_train_loss = np.mean(loss_buff)
+            loss_eval = self.evaluate(model, eval_loader)
+            #
+            if lr_scheduler is not None:
+                lr_scheduler.step()
+            self.loss_reduction = self.lowest_loss - loss_eval
+            if self.loss_reduction > 0:
+                self.lowest_loss = loss_eval
+            # output to log
+            self.log(
+                f'\n=> Training Loss: {avg_train_loss:.4f}, ' + \
+                f'Evaluation Loss {loss_eval:.4f}')
+            self.log('\n')
+            # output to terminal
+            print(
+                f'=> Training Loss: {avg_train_loss:.4f} , ' + \
+                f'Evaluation Loss {loss_eval:.4f}')
+            self.save_ckpt(model, optimiser, lr_scheduler)
 
     def evaluate(self, model, eval_loader):
         model = model.eval()
         with torch.no_grad():
             loss_buff = []
-            with tqdm(
-                    eval_loader, unit=' batches',
-                    bar_format='{desc}{percentage:3.0f}%{postfix}') as i_epoch:
-                i_epoch.set_description('Evaluation')
-                for batch in i_epoch:
-                    # forward propagation
-                    batch = [x.to(self.device) for x in batch]
-                    loss_eval_temp = model.step(batch)
-                    loss_buff.append(loss_eval_temp.item())
-                    i_epoch.set_postfix(loss=f'{loss_eval_temp.item():.4f}')
+            n_batches = len(eval_loader)
+            start_time = time.time()
+            for batch_idx, batch in enumerate(eval_loader):
+                # forward propagation
+                tick = time.time()
+                batch = [x.to(self.device) for x in batch]
+                loss_eval_temp = model.step(batch)
+                loss_buff.append(loss_eval_temp.item())
+                loss_str=f'Loss: {loss_eval_temp.item():.4f}'
+                progress_bar = f'{(100.0*(batch_idx+1))/n_batches:02.2f}%'
+                elapsed_time = f'{time.time()-start_time:.2f}s'
+                est_finish = f'{(n_batches - batch_idx)*(time.time()-tick):.2f}s'
+                print(f'[Evaluation] {loss_str} [{progress_bar}, {elapsed_time} < {est_finish}]', end='\r')
+            print(f'[Evaluation] {loss_str} [{progress_bar}, {elapsed_time} < {est_finish}]')
         loss_eval = np.mean(loss_buff)
         return loss_eval
 
@@ -120,10 +120,33 @@ class Trainer:
             self.last_epoch = ckpt['last_epoch']
             self.lowest_loss = ckpt['lowest_loss']
             print(f'=> Loaded from {ckpt_name}, Epoch {self.last_epoch}\n')
-        # if self.gpu_count > 1:
-        #     print(f'Training with {self.gpu_count} GPUs')
-        #     model = nn.DataParallel(model)
         return model, optimiser, lr_scheduler
+
+    def save_ckpt(self, model, optimiser, lr_scheduler=None):
+        weights = model.state_dict()
+        ckpt = {'last_epoch': self.current_epoch,
+                'weights': weights,
+                'optimiser': optimiser.state_dict(),
+                'lowest_loss': self.lowest_loss
+                }
+        if optimiser is not None:
+            ckpt['lr_scheduler'] = lr_scheduler.state_dict()
+        ckpt_name = 'model.pth'
+        ckpt_path = os.path.join(self.args.model_dir, ckpt_name)
+        with open(ckpt_path, 'wb') as f:
+            torch.save(ckpt, f)
+        if self.loss_reduction > 0:
+            best_ckpt_name = 'model.best.pth'
+            with open(best_ckpt_name, 'wb') as f:
+                torch.save(ckpt, f)
+            if self.current_epoch > 0:
+                print(
+                    f'=> Best Model Updated, {self.loss_reduction:.3f} ' + \
+                    'Eval Loss Reduction\n')
+            else:
+                print('\n')
+        else:
+            print('=> Model Saved\n')
 
     def save_ckpt(self, model, optimiser, lr_scheduler=None):
         weights = model.state_dict()
