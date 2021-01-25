@@ -1,6 +1,6 @@
 /build
 /devel
-/dataset
+*/dataset
 /.vscode
 /system_output
 *.tar
@@ -11,3 +11,5 @@
 network/scripts/weights
 .ipynb_checkpoints/
 random_texture/
+src/data_collector/dataset
+*.DS_Store

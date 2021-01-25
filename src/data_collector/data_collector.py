@@ -234,7 +234,7 @@ if __name__ == '__main__':
     #
     generator_parser = argparse.ArgumentParser(description='Generate a Dataset')
     #
-    generator_parser.add_argument('--model_config_path', type=str, default="models/model_list.csv",
+    generator_parser.add_argument('--model_config_path', type=str, default="model_list.csv",
                                   help='dataset name')
     generator_parser.add_argument('--class_labels' , nargs='+', type=int, default=-1,
                                   help='start collecting data for given model idx in config file')
