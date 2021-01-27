@@ -4,7 +4,7 @@ import sys
 sys.path.insert(0, "../control")
 from pibot import PenguinPi
 
-ppi = PenguinPi()
+
 
 def calibrateWheelRadius():
     # Compute the robot scale parameter using a range of wheel velocities.
@@ -90,6 +90,15 @@ def calibrateBaseline(scale):
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ip", metavar='', type=str, default='localhost')
+    parser.add_argument("--port", metavar='', type=int, default=40000)
+    args, _ = parser.parse_known_args()
+
+    ppi = PenguinPi(args.ip,args.port)
+
     # calibrate pibot scale and baseline
     dataDir = "{}/param/".format(os.getcwd())
 

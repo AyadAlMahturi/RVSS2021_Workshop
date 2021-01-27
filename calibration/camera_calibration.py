@@ -6,109 +6,95 @@ import os
 import sys
 
 sys.path.insert(0, "../control")
-import pibot as ppi
+from pibot import PenguinPi
+import pygame
+
+class calibration:
+    def __init__(self,args):
+        self.pibot = PenguinPi(args.ip, args.port)
+        self.img = np.zeros([240,320,3], dtype=np.uint8)
+        self.command = {'motion':[0, 0], 'image': False}
+        self.finish = False
+
+    def camera_calibration(self, dataDir):
+        # This file can be used to generate camera calibration parameters
+        # to improve the default values
+
+        return None
 
 
-def camera_calibration(dataDir):
-    # This file can be used to generate camera calibration parameters
-    # to improve the default values
+    def image_collection(self, dataDir, images_to_collect):
+        if self.command['image']:
+            for i in range(images_to_collect):
+                image = self.pibot.get_image()
+                filename = "calib_{}.png".format(i)
+                image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+                cv2.imwrite(filename, image)
+            self.finish = True
 
-    fileNameK = "{}intrinsic.txt".format(dataDir)
-    fileNameD = "{}distCoeffs.txt".format(dataDir)
-    aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_100)
-    board = aruco.CharucoBoard_create(3,3,0.94,0.34,aruco_dict)
+    def update_keyboard(self):
+        for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_UP:
+                self.command['motion'][0] = min(self.command['motion'][0]+1, 1)
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_DOWN:
+                self.command['motion'][0] = max(self.command['motion'][0]-1, -1)
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_LEFT:
+                self.command['motion'][1] = min(self.command['motion'][1]+1, 1)
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_RIGHT:
+                self.command['motion'][1] = max(self.command['motion'][1]-1, -1)
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                self.command['motion'] = [0, 0]
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
+                self.command['image'] = True
 
-    allCorners = []
-    allIds = []
-    decimator = 0
+    def control(self):
+        motion_command = self.command['motion']
+        lv, rv = self.pibot.set_velocity(motion_command)
 
-    images = np.array([dataDir + f for f in os.listdir(dataDir) if f.endswith(".png")])
-    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.00001)
-
-    for im in images:
-        print("=> Processing image {0}".format(im))
-        frame = cv2.imread(im)
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        corners, ids, rejectedImgPoints = cv2.aruco.detectMarkers(gray, aruco_dict)
-
-        if len(corners) > 0:
-            # SUB PIXEL DETECTION
-            for corner in corners:
-                cv2.cornerSubPix(gray, corner,
-                                 winSize=(3, 3),
-                                 zeroZone=(-1, -1),
-                                 criteria=criteria)
-            res2 = cv2.aruco.interpolateCornersCharuco(corners, ids, gray, board)
-            if res2[1] is not None and res2[2] is not None and len(res2[1]) > 3 and decimator % 1 == 0:
-                allCorners.append(res2[1])
-                allIds.append(res2[2])
-
-        print("Image: {}/{}".format(decimator + 1, len(images)))
-        print("Corners found: {}".format(len(corners)))
-        decimator += 1
-
-    imsize = gray.shape
-    print("\n")
-    print("Checkerboard detected in: {}/{} images".format(len(allCorners), decimator))
-
-    cameraMatrixInit = np.array([[1000., 0., imsize[0] / 2.],
-                                 [0., 1000., imsize[1] / 2.],
-                                 [0., 0., 1.]])
-
-    distCoeffsInit = np.zeros((5, 1))
-    flags = (cv2.CALIB_USE_INTRINSIC_GUESS + cv2.CALIB_RATIONAL_MODEL + cv2.CALIB_FIX_ASPECT_RATIO)
-    (ret, camera_matrix, distortion_coefficients0,
-     rotation_vectors, translation_vectors, _, _, _) = cv2.aruco.calibrateCameraCharucoExtended(
-        charucoCorners=allCorners,
-        charucoIds=allIds,
-        board=board,
-        imageSize=imsize,
-        cameraMatrix=cameraMatrixInit,
-        distCoeffs=distCoeffsInit,
-        flags=flags,
-        criteria=(cv2.TERM_CRITERIA_EPS & cv2.TERM_CRITERIA_COUNT, 10000, 1e-9))
-
-    np.savetxt(fileNameK, camera_matrix, delimiter=',')
-    np.savetxt(fileNameD, distortion_coefficients0, delimiter=',')
-
-    i = 5  # select image id
-    plt.figure()
-    frame = cv2.imread(images[i])
-    img_undist = cv2.undistort(frame, camera_matrix, distortion_coefficients0, None)
-    plt.subplot(1, 2, 1)
-    plt.imshow(frame)
-    plt.title("Raw image")
-    plt.axis("off")
-    plt.subplot(1, 2, 2)
-    plt.imshow(img_undist)
-    plt.title("Corrected image")
-    plt.axis("off")
-    plt.show()
-
-
-def image_collection(dataDir, images_to_collect):
-    for i in range(images_to_collect):
-        input(i)
-        image = ppi.get_image()
-        filename = "{}{}.png".format(dataDir, i)
-        cv2.imwrite(filename, image)
-
+    def take_pic(self):
+        self.img = self.pibot.get_image()
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ip", metavar='', type=str, default='localhost')
+    parser.add_argument("--port", metavar='', type=int, default=40000)
+    args, _ = parser.parse_known_args()
+
     currentDir = os.getcwd()
     dataDir = "{}/param/".format(currentDir)
     if not os.path.exists(dataDir):
         os.makedirs(dataDir)
-    images_to_collect = 20
+    
+    images_to_collect = 1
 
+    calib = calibration(args)
+
+    width, height = 760, 600
+    canvas = pygame.display.set_mode((width, height))
+    pygame.display.set_caption('Calibration')
+    canvas.fill((0, 0, 0))
+    pygame.display.update()
     # collect data
+
     print('Collecting {} images for camera calibration.'.format(images_to_collect))
     print('Press ENTER to capture image.')
-    image_collection(dataDir, images_to_collect)
+    while not calib.finish:
+        
+        calib.update_keyboard()
+        calib.control()
+        calib.take_pic()
+        calib.image_collection(dataDir, images_to_collect)
+        img_surface = pygame.surfarray.make_surface(calib.img)
+        img_surface = pygame.transform.flip(img_surface, True, False)
+        img_surface = pygame.transform.rotozoom(img_surface, 90, 1)
+        canvas.blit(img_surface, (0, 0))
+        pygame.display.update()
     print('Finished image collection.\n')
 
     # calibrate camera
     print('Calibrating camera...')
-    camera_calibration(dataDir)
-    print('Finished camera calibration.')
+    # camera_calibration(dataDir)
+    # print('Finished camera calibration.')
 
