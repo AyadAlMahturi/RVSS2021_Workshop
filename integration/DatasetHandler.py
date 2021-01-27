@@ -8,8 +8,14 @@ import json
 class DatasetWriter:
     def __init__(self, dataset_name):
         self.folder = dataset_name+'/'
+        
         if not os.path.exists(self.folder):
             os.makedirs(self.folder)
+        else:
+            os.rmdir(self.folder)
+            os.makedirs(self.folder)
+
+        
 
         kb_fname = self.folder + "keyboard.csv"    
         self.kb_f = open(kb_fname, 'w')
@@ -54,13 +60,20 @@ class DatasetPlayer:
         self.img_fc = csv.reader(self.img_f)
 
         self.t0 = time.time()
+
+        self.f_image = 1
+        self.f_vel = 1
+        
     
     def get_image(self):
         try:
             row = next(self.img_fc)
         except StopIteration:
-            print("End of image data.")
-            return None
+            if self.f_image:
+                print("End of image data.")
+                self.f_image = 0          
+            img = np.zeros([240,320,3], dtype=np.uint8)           
+            return img
 
         t = float(row[0])
         img = cv2.imread(row[2])
@@ -73,7 +86,9 @@ class DatasetPlayer:
         try:
             row = next(self.kb_fc)
         except StopIteration:
-            print("End of keyboard data.")
+            if self.f_vel:
+                print("End of keyboard data.")
+                self.f_vel = 0
             return 0, 0
 
         t = float(row[0])
