@@ -44,12 +44,32 @@ class SceneManager:
         rospy.wait_for_service("gazebo/spawn_urdf_model")
         spawn_model = rospy.ServiceProxy("gazebo/spawn_urdf_model", SpawnModel)
         # print("Got it.")
-        for key in self.obj_class_dict:
+        nx, ny = (8, 8)
+        x = np.linspace(-1.2, 1.2, nx)
+        y = np.linspace(-1.2, 1.2, ny)
+        xv, yv = np.meshgrid(x, y)
+        all_candidates = np.arange(nx*ny)
+        n_samples = 0
+        for key in self.obj_class_dict.keys():
+            for _ in range(0, int(self.obj_class_dict[key])):
+                n_samples+=1
+        rand_idx = random.sample(all_candidates, n_samples)
+        obj_counter = 0
+        for key in self.obj_class_dict.keys():
             for i in range(0, int(self.obj_class_dict[key])):
-                x_temp = np.around(np.random.uniform(
-                    -1.5, 1.5, 1), decimals=3)
-                y_temp = np.around(np.random.uniform(
-                    -1.5, 1.5, 1), decimals=3)
+                x_idx = int(rand_idx[obj_counter]//nx)
+                y_idx = int(rand_idx[obj_counter]%ny)
+                x_temp = xv[x_idx, y_idx]
+                y_temp = yv[x_idx, y_idx]
+                obj_counter += 1
+                # x_temp = np.around(np.random.uniform(
+                #     -1.5, 1.5, 1), decimals=3)
+                # y_temp = np.around(np.random.uniform(
+                #     -1.5, 1.5, 1), decimals=3)
+                # x_temp = np.around(np.random.uniform(
+                #     -4.5, 4.5, 1), decimals=0)
+                # y_temp = np.around(np.random.uniform(
+                #     -4.5, 4.5, 1), decimals=0)
                 item_name = "obj_%s_%i" % (key, i)
                 # print("Spawning model:%s", item_name)
                 quat = np.array(
