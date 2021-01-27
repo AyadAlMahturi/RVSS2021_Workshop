@@ -12,3 +12,5 @@ network/scripts/weights
 random_texture/
 src/data_collector/dataset
 *.DS_Store
+/test
+/record

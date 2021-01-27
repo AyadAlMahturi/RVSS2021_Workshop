@@ -33,6 +33,7 @@ class DatasetWriter:
         self.kb_f.flush()
     
     def write_image(self, image):
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         ts = time.time() - self.t0
         img_fname = self.folder+str(self.image_count)+".png"
         row = [ts, self.image_count, img_fname]
@@ -59,22 +60,21 @@ class DatasetPlayer:
             row = next(self.img_fc)
         except StopIteration:
             print("End of image data.")
-            while True:
-                time.sleep(1)
+            return None
 
         t = float(row[0])
         img = cv2.imread(row[2])
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         while time.time() - self.t0 < t:
             continue
         return img
     
-    def set_velocity(self, left_vel, right_vel):
+    def set_velocity(self):
         try:
             row = next(self.kb_fc)
         except StopIteration:
             print("End of keyboard data.")
-            while True:
-                time.sleep(1)
+            return 0, 0
 
         t = float(row[0])
         while time.time() - self.t0 < t:
@@ -104,7 +104,7 @@ class OutputWriter:
         map_dict = {"taglist":slam.taglist,
                     "map":slam.markers.tolist(),
                     "covariance":slam.P[3:,3:].tolist()}
-        with open(self.map_fn, 'w') as map_f:
+        with open(self.map_f, 'w') as map_f:
             json.dump(map_dict, map_f, indent=2)
             
     def write_image(self, image, slam):

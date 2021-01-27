@@ -26,7 +26,13 @@ from network.scripts.detector import Detector
 class Operate:
     def __init__(self, args):
         # Initialise data parameters
-        self.pibot = PenguinPi(args.ip, args.port)
+        
+        if args.play_data:
+            self.pibot = dh.DatasetPlayer("record")
+        else:
+            self.pibot = PenguinPi(args.ip, args.port)
+            
+
         self.img = np.zeros([240,320,3], dtype=np.uint8)
         self.aruco_img = np.zeros([240,320,3], dtype=np.uint8)
         ckpt = "network/scripts/pretrained_weights.pth"
@@ -45,15 +51,16 @@ class Operate:
         
         # Optionally record input data to a dataset
         if args.save_data:
-            self.data = dh.DatasetWriter('test')
+            self.data = dh.DatasetWriter('record')
         else:
             self.data = None
+
         self.output = dh.OutputWriter('system_output')
         # TODO: reduce legend size
         self.timer = time.time()
         self.count_down = 180
         self.start_time = time.time()
-        self.command = {'motion':[0, 0], 'inference': False}
+        self.command = {'motion':[0, 0], 'inference': False, 'output': False}
         self.close = False
 
     def getCalibParams(self, datadir, ip):
@@ -70,9 +77,12 @@ class Operate:
         baseline = np.loadtxt(fileB, delimiter=',')
         return camera_matrix, dist_coeffs, scale, baseline
 
-    def control(self):
-        motion_command = self.command['motion']
-        lv, rv = self.pibot.set_velocity(motion_command)
+    def control(self):       
+        if args.play_data:
+            lv, rv = self.pibot.set_velocity()            
+        else:
+            motion_command = self.command['motion']
+            lv, rv = self.pibot.set_velocity(motion_command)
         if not self.data is None:
             self.data.write_keyboard(lv, rv)
         dt = time.time() - self.timer
@@ -146,6 +156,8 @@ class Operate:
                 self.command['motion'] = [0, 0]
             if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
                 self.command['inference'] = True
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_o:
+                self.command['output'] = True
             if event.type == pygame.QUIT:
                 self.close = True
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
@@ -161,6 +173,13 @@ class Operate:
     #         self.output.write_image(self.img, self.slam)
     #     if self.keyboard.get_slam_signal():
     #         self.output.write_map(self.slam)
+    def record_data(self):
+        if self.command['output']:
+            self.output.write_map(self.slam)
+            self.command['output'] = False
+            return None
+        else:
+            return None
 
 
 if __name__ == "__main__":
@@ -170,7 +189,8 @@ if __name__ == "__main__":
     parser.add_argument("--ip", metavar='', type=str, default='localhost')
     parser.add_argument("--port", metavar='', type=int, default=40000)
     parser.add_argument("--calib_dir", type=str, default="calibration/param/")
-    parser.add_argument("--save_data",  action='store_true')
+    parser.add_argument("--save_data", action='store_true')
+    parser.add_argument("--play_data", action='store_true')
     args, _ = parser.parse_known_args()
 
     operate = Operate(args)
@@ -198,6 +218,7 @@ if __name__ == "__main__":
         operate.control()
         operate.take_pic()
         operate.update_slam()
+        operate.record_data()
         operate.detect_fruit()
         # visualise
         img_surface = pygame.surfarray.make_surface(operate.draw())
