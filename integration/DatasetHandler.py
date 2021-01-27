@@ -121,7 +121,7 @@ class OutputWriter:
             json.dump(map_dict, map_f, indent=2)
             
     def write_image(self, image, slam):
-        img_fname = "{}.png".format(self.image_count)
+        img_fname = "{}{}.png".format(self.folder, self.image_count)
         self.image_count += 1
         img_dict = {"pose":slam.robot.state.tolist(),
                     "imgfname":img_fname}

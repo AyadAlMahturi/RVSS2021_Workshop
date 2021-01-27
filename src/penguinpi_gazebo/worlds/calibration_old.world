@@ -81,42 +81,42 @@
       <cast_shadows>1</cast_shadows>
     </light>
     <state world_name='default'>
-      <sim_time>1772 339000000</sim_time>
-      <real_time>141 235703530</real_time>
-      <wall_time>1611749033 991537260</wall_time>
-      <iterations>14119</iterations>
+      <sim_time>1701 744000000</sim_time>
+      <real_time>731 472007570</real_time>
+      <wall_time>1611744828 965296300</wall_time>
+      <iterations>73107</iterations>
       <model name='PenguinPi'>
-        <pose frame=''>0.100631 0.155117 0.014049 -0.000101 -0.073047 -0.606045</pose>
+        <pose frame=''>0.104999 0.158585 0.013853 -9.9e-05 -0.073092 -0.661797</pose>
         <scale>1 1 1</scale>
         <link name='base_link'>
-          <pose frame=''>0.099732 0.155742 0.029009 -0.000101 -0.073047 -0.606045</pose>
-          <velocity>3.1e-05 1.9e-05 0.009891 -0.000112 0.000868 0.000783</velocity>
-          <acceleration>-0.000948 0.000587 9.77205 -0.359471 0.005944 0.033399</acceleration>
-          <wrench>-0.001118 0.000693 11.5321 0 -0 0</wrench>
+          <pose frame=''>0.104135 0.15926 0.028813 -9.9e-05 -0.073092 -0.661797</pose>
+          <velocity>4.3e-05 0 -0.038975 0.001717 0.0007 0.000594</velocity>
+          <acceleration>0.002111 -0.003291 -9.77383 0.358343 -0.030035 -0.027508</acceleration>
+          <wrench>0.002491 -0.003884 -11.5342 0 -0 0</wrench>
         </link>
         <link name='cam_link'>
-          <pose frame=''>0.16531 0.110294 0.034848 -0.000103 -0.073047 -0.606044</pose>
-          <velocity>7.2e-05 7.1e-05 0.009837 -0.000105 0.000872 0.000784</velocity>
-          <acceleration>-0.000473 0.001775 9.77582 -0.366089 0.012126 0.034329</acceleration>
-          <wrench>-2.4e-05 8.9e-05 0.488791 0 -0 0</wrench>
+          <pose frame=''>0.167078 0.110228 0.034655 -0.0001 -0.073091 -0.661797</pose>
+          <velocity>8.1e-05 1.8e-05 -0.03911 0.001727 0.000662 0.000602</velocity>
+          <acceleration>0.002556 -0.006177 -9.77906 0.359206 -0.037974 -0.026162</acceleration>
+          <wrench>0.000128 -0.000309 -0.488953 0 -0 0</wrench>
         </link>
         <link name='left_wheel'>
-          <pose frame=''>0.176063 0.194092 0.032001 1.57084 -0.021019 2.53542</pose>
-          <velocity>2.3e-05 5.7e-05 0.010037 -0.001781 0.000722 0</velocity>
-          <acceleration>0.006698 -0.009766 9.90386 0.335652 -0.242882 -1.34447</acceleration>
-          <wrench>0.008708 -0.012696 12.875 0 -0 0</wrench>
+          <pose frame=''>0.182485 0.193296 0.031803 1.57087 -0.033762 2.47967</pose>
+          <velocity>-3e-06 0.000109 -0.039485 -0.003282 0.004595 0.001499</velocity>
+          <acceleration>-0.005807 0.0106 -9.90415 -0.28982 0.239722 1.26472</acceleration>
+          <wrench>-0.007549 0.01378 -12.8754 0 -0 0</wrench>
         </link>
         <link name='mesh_links'>
-          <pose frame=''>0.151414 0.015299 -0.137501 -0.073047 6.5e-05 0.964746</pose>
-          <velocity>6.5e-05 -0.000114 0.010184 0.000403 0.001759 0.000729</velocity>
-          <acceleration>0.123799 0.080046 9.77728 0 -0 0</acceleration>
-          <wrench>0.001238 0.0008 0.097773 0 -0 0</wrench>
+          <pose frame=''>0.147914 0.016146 -0.13769 -0.073092 7e-05 0.908994</pose>
+          <velocity>-0.000592 -0.000513 -0.038694 0.000547 0.001615 0.000668</velocity>
+          <acceleration>-0.128891 -0.078964 -9.77529 0 -0 0</acceleration>
+          <wrench>-0.001289 -0.00079 -0.097753 0 -0 0</wrench>
         </link>
         <link name='right_wheel'>
-          <pose frame=''>0.090618 0.070808 0.032002 1.57087 -0.137629 2.53543</pose>
-          <velocity>7.8e-05 3.5e-05 0.010066 -0.001096 0.002443 -0</velocity>
-          <acceleration>-0.006751 0.008561 9.72264 0.252897 -0.078929 -1.25169</acceleration>
-          <wrench>-0.008776 0.011129 12.6394 0 -0 0</wrench>
+          <pose frame=''>0.090303 0.074964 0.031809 1.57089 -0.06919 2.47967</pose>
+          <velocity>0.000102 -5e-06 -0.038537 -0.002653 0.004105 0.001499</velocity>
+          <acceleration>0.004784 -0.006768 -9.7206 -0.280885 0.112799 1.24205</acceleration>
+          <wrench>0.006219 -0.008798 -12.6368 0 -0 0</wrench>
         </link>
       </model>
       <model name='ground_plane'>
@@ -732,7 +732,7 @@
     </model>
     <gui fullscreen='0'>
       <camera name='user_camera'>
-        <pose frame=''>-2.61519 4.94901 4.1119 0 0.598198 -1.04484</pose>
+        <pose frame=''>-3.10898 3.10345 3.07436 0 0.534198 -0.928847</pose>
         <view_controller>orbit</view_controller>
         <projection_type>perspective</projection_type>
       </camera>

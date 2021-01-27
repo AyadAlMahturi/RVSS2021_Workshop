@@ -32,7 +32,7 @@ class Operate:
         else:
             self.pibot = PenguinPi(args.ip, args.port)
             
-
+        self.pred = None
         self.img = np.zeros([240,320,3], dtype=np.uint8)
         self.aruco_img = np.zeros([240,320,3], dtype=np.uint8)
         ckpt = "network/scripts/pretrained_weights.pth"
@@ -102,11 +102,8 @@ class Operate:
 
     def detect_fruit(self):
         if self.command['inference']:
-            pred, self.colour_map = self.detector.detect_single_image(self.img)
+            self.pred, self.colour_map = self.detector.detect_single_image(self.img)
             self.command['inference'] = False
-            return pred
-        else:
-            return None
 
     def draw(self):        
         pad = 40
@@ -156,7 +153,7 @@ class Operate:
                 self.command['motion'] = [0, 0]
             if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
                 self.command['inference'] = True
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_o:
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_s:
                 self.command['output'] = True
             if event.type == pygame.KEYDOWN and event.key == pygame.K_n:
                 self.command['save_inference'] = True
@@ -179,9 +176,13 @@ class Operate:
         if self.command['output']:
             self.output.write_map(self.slam)
             self.command['output'] = False
-            return None
-        else:
-            return None
+        if self.command['save_inference']:
+            self.output.write_image(self.pred,self.slam)
+            # a=np.unique(self.pred)
+            # print(a)
+            self.command['save_inference'] = False
+
+        
 
 
 if __name__ == "__main__":
@@ -207,6 +208,11 @@ if __name__ == "__main__":
     splash = pygame.transform.scale(splash, (width, height))
     canvas.blit(splash, (-2, -1))
     pygame.display.update()
+
+    print('Use the arrow keys to drive the robot.')
+    print('Press P to detect the fruit.')
+    print('Press S to record the SLAM map.')
+    print('Press N to record the inference and robot position.')
 
     start = False
 
