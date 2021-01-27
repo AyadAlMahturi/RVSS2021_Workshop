@@ -60,7 +60,7 @@ class Operate:
         self.timer = time.time()
         self.count_down = 180
         self.start_time = time.time()
-        self.command = {'motion':[0, 0], 'inference': False, 'output': False}
+        self.command = {'motion':[0, 0], 'inference': False, 'output': False, 'save_inference': False}
         self.close = False
 
     def getCalibParams(self, datadir, ip):
@@ -158,6 +158,8 @@ class Operate:
                 self.command['inference'] = True
             if event.type == pygame.KEYDOWN and event.key == pygame.K_o:
                 self.command['output'] = True
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_n:
+                self.command['save_inference'] = True
             if event.type == pygame.QUIT:
                 self.close = True
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:

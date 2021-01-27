@@ -15,8 +15,6 @@ class DatasetWriter:
             os.rmdir(self.folder)
             os.makedirs(self.folder)
 
-        
-
         kb_fname = self.folder + "keyboard.csv"    
         self.kb_f = open(kb_fname, 'w')
         self.kb_fc = csv.writer(self.kb_f)

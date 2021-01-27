@@ -6,7 +6,7 @@ import os
 import sys
 
 sys.path.insert(0, "../control")
-from pibot_sim import PenguinPi
+import pibot as ppi
 
 
 def camera_calibration(dataDir):

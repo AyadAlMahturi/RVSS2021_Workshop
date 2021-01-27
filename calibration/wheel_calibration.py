@@ -2,7 +2,7 @@ import numpy as np
 import os
 import sys
 sys.path.insert(0, "../control")
-from pibot_sim import PenguinPi
+from pibot import PenguinPi
 
 ppi = PenguinPi()
 
