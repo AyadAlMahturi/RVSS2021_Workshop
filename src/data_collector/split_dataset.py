@@ -20,7 +20,7 @@ def main(args):
         all_images =  os.listdir(dir_temp)
         for image_name in all_images:
             image_path = os.path.join(model, 'images', image_name)
-            label_path = os.path.join(model, 'labels', image_name[:-4]+'_mask.png')
+            label_path = os.path.join(model, 'labels', image_name[:-4]+'_label.png')
             dataset_catalog[counter] = {'image': image_path, 'label':label_path}
             counter +=1
     # split training and evaluation
@@ -43,19 +43,21 @@ def main(args):
 
 def generate_binary_file(dataset_catalog, save_path):
     hf = h5py.File(save_path, 'a')
-    img_dataset = []
-    label_dataset = []
-    for data_pair in tqdm(dataset_catalog.values()):
+    n_samples = len(dataset_catalog.keys())
+    print(n_samples)
+    dt = h5py.special_dtype(vlen=np.dtype('uint8'))
+    image_data = hf.create_dataset('images', (n_samples, ), dtype=dt)
+    label_data = hf.create_dataset('labels', (n_samples, ), dtype=dt)
+    for idx, data_pair in tqdm(enumerate(dataset_catalog.values())):
         img_path = os.path.join('dataset', args.dataset_name, data_pair["image"])
         label_path = os.path.join('dataset', args.dataset_name, data_pair["label"])
-        with open(img_path, 'rb') as img_f:  # open images as python binary
-            img_binary = img_f.read()
-        with open(label_path, 'rb') as label_f:  # open images as python binary
-            label_binary = label_f.read()
-        img_dataset.append(np.asarray(img_binary))
-        label_dataset.append(np.array(label_binary))
-    hf.create_dataset('labels', data=label_dataset)
-    hf.create_dataset('images', data=img_dataset)
+        img_f = open(img_path, 'rb')
+        img_binary = img_f.read()
+        image_data[idx] = np.frombuffer(img_binary, dtype='uint8')
+        label_f = open(label_path, 'rb')
+        label_binary = label_f.read()
+        label_data[idx] = np.frombuffer(label_binary, dtype='uint8')
+        print(idx)
     hf.close()
 
 
