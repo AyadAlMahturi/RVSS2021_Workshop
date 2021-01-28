@@ -26,13 +26,19 @@ from network.scripts.detector import Detector
 class Operate:
     def __init__(self, args):
         # Initialise data parameters
-        self.pibot = PenguinPi(args.ip, args.port)
+        
+        if args.play_data:
+            self.pibot = dh.DatasetPlayer("record")
+        else:
+            self.pibot = PenguinPi(args.ip, args.port)
+            
+        self.pred = np.zeros([240,320,3], dtype=np.uint8)
         self.img = np.zeros([240,320,3], dtype=np.uint8)
         self.aruco_img = np.zeros([240,320,3], dtype=np.uint8)
         ckpt = "network/scripts/pretrained_weights.pth"
         self.detector = Detector(ckpt,use_gpu=False)
-        self.colour_map = np.zeros([240,320,3], dtype=np.uint8)
-
+        self.colour_map = np.ones([240,320,3], dtype=np.uint8)
+        self.colour_map *= 100
         # Set up subsystems
         camera_matrix, dist_coeffs, scale, baseline = self.getCalibParams(
             args.calib_dir, args.ip)
@@ -45,16 +51,18 @@ class Operate:
         
         # Optionally record input data to a dataset
         if args.save_data:
-            self.data = dh.DatasetWriter('test')
+            self.data = dh.DatasetWriter('record')
         else:
             self.data = None
-        self.output = dh.OutputWriter('system_output')
+
+        self.output = dh.OutputWriter('workshop_output')
         # TODO: reduce legend size
         self.timer = time.time()
         self.count_down = 180
         self.start_time = time.time()
-        self.command = {'motion':[0, 0], 'inference': False}
+        self.command = {'motion':[0, 0], 'inference': False, 'output': False, 'save_inference': False}
         self.close = False
+        self.pred_fname = ''
 
     def getCalibParams(self, datadir, ip):
         # Imports calibration parameters
@@ -70,9 +78,12 @@ class Operate:
         baseline = np.loadtxt(fileB, delimiter=',')
         return camera_matrix, dist_coeffs, scale, baseline
 
-    def control(self):
-        motion_command = self.command['motion']
-        lv, rv = self.pibot.set_velocity(motion_command)
+    def control(self):       
+        if args.play_data:
+            lv, rv = self.pibot.set_velocity()            
+        else:
+            motion_command = self.command['motion']
+            lv, rv = self.pibot.set_velocity(motion_command)
         if not self.data is None:
             self.data.write_keyboard(lv, rv)
         dt = time.time() - self.timer
@@ -92,11 +103,8 @@ class Operate:
 
     def detect_fruit(self):
         if self.command['inference']:
-            pred, self.colour_map = self.detector.detect_single_image(self.img)
+            self.pred, self.colour_map = self.detector.detect_single_image(self.img)
             self.command['inference'] = False
-            return pred
-        else:
-            return None
 
     def draw(self):        
         pad = 40
@@ -146,6 +154,10 @@ class Operate:
                 self.command['motion'] = [0, 0]
             if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
                 self.command['inference'] = True
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_s:
+                self.command['output'] = True
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_n:
+                self.command['save_inference'] = True
             if event.type == pygame.QUIT:
                 self.close = True
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
@@ -161,8 +173,17 @@ class Operate:
     #         self.output.write_image(self.img, self.slam)
     #     if self.keyboard.get_slam_signal():
     #         self.output.write_map(self.slam)
+    def record_data(self):
+        if self.command['output']:
+            self.output.write_map(self.slam)
+            self.command['output'] = False
+        if self.command['save_inference']:
+            self.pred_fname = self.output.write_image(self.pred, self.slam)
+            # a=np.unique(self.pred)
+            # print(a)
+            self.command['save_inference'] = False
 
-
+        
 if __name__ == "__main__":
     import argparse
 
@@ -170,10 +191,13 @@ if __name__ == "__main__":
     parser.add_argument("--ip", metavar='', type=str, default='localhost')
     parser.add_argument("--port", metavar='', type=int, default=40000)
     parser.add_argument("--calib_dir", type=str, default="calibration/param/")
-    parser.add_argument("--save_data",  action='store_true')
+    parser.add_argument("--save_data", action='store_true')
+    parser.add_argument("--play_data", action='store_true')
     args, _ = parser.parse_known_args()
 
     operate = Operate(args)
+    
+    pygame.font.init() 
     
     width, height = 760, 600
     canvas = pygame.display.set_mode((width, height))
@@ -182,9 +206,14 @@ if __name__ == "__main__":
     pygame.display.set_icon(icon)
     canvas.fill((0, 0, 0))
     splash = pygame.image.load('pics/rvss_splash.png')
-    splash = pygame.transform.scale(splash, (width, height))
-    canvas.blit(splash, (-2, -1))
+    # splash = pygame.transform.scale(splash, (width, height))
+    canvas.blit(splash, (0, 0))
     pygame.display.update()
+
+    print('Use the arrow keys to drive the robot.')
+    print('Press P to detect the fruit.')
+    print('Press S to record the SLAM map.')
+    print('Press N to record the inference and robot position.')
 
     start = False
 
@@ -192,18 +221,26 @@ if __name__ == "__main__":
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN:
                 start = True
+    font = pygame.font.SysFont('Comic Sans MS', 30)
 
     while start:
         operate.update_keyboard()
         operate.control()
         operate.take_pic()
         operate.update_slam()
+        operate.record_data()
         operate.detect_fruit()
         # visualise
         img_surface = pygame.surfarray.make_surface(operate.draw())
         img_surface = pygame.transform.flip(img_surface, True, False)
         img_surface = pygame.transform.rotozoom(img_surface, 90, 1)
+        if operate.pred_fname == '':
+            notification = 'Press "n" to Save Prediction'
+        else:
+            notification = f'Prediction is saved to {operate.pred_fname}'
+        text_surface = font.render(notification, False, (200, 200, 200))
         canvas.blit(img_surface, (0, 0))
+        canvas.blit(text_surface, (40, 570))
         pygame.display.update()
 
 

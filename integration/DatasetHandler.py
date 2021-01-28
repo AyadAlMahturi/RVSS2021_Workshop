@@ -8,7 +8,11 @@ import json
 class DatasetWriter:
     def __init__(self, dataset_name):
         self.folder = dataset_name+'/'
+        
         if not os.path.exists(self.folder):
+            os.makedirs(self.folder)
+        else:
+            os.rmdir(self.folder)
             os.makedirs(self.folder)
 
         kb_fname = self.folder + "keyboard.csv"    
@@ -33,6 +37,7 @@ class DatasetWriter:
         self.kb_f.flush()
     
     def write_image(self, image):
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         ts = time.time() - self.t0
         img_fname = self.folder+str(self.image_count)+".png"
         row = [ts, self.image_count, img_fname]
@@ -53,28 +58,36 @@ class DatasetPlayer:
         self.img_fc = csv.reader(self.img_f)
 
         self.t0 = time.time()
+
+        self.f_image = 1
+        self.f_vel = 1
+        
     
     def get_image(self):
         try:
             row = next(self.img_fc)
         except StopIteration:
-            print("End of image data.")
-            while True:
-                time.sleep(1)
+            if self.f_image:
+                print("End of image data.")
+                self.f_image = 0          
+            img = np.zeros([240,320,3], dtype=np.uint8)           
+            return img
 
         t = float(row[0])
         img = cv2.imread(row[2])
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         while time.time() - self.t0 < t:
             continue
         return img
     
-    def set_velocity(self, left_vel, right_vel):
+    def set_velocity(self):
         try:
             row = next(self.kb_fc)
         except StopIteration:
-            print("End of keyboard data.")
-            while True:
-                time.sleep(1)
+            if self.f_vel:
+                print("End of keyboard data.")
+                self.f_vel = 0
+            return 0, 0
 
         t = float(row[0])
         while time.time() - self.t0 < t:
@@ -104,11 +117,11 @@ class OutputWriter:
         map_dict = {"taglist":slam.taglist,
                     "map":slam.markers.tolist(),
                     "covariance":slam.P[3:,3:].tolist()}
-        with open(self.map_fn, 'w') as map_f:
+        with open(self.map_f, 'w') as map_f:
             json.dump(map_dict, map_f, indent=2)
             
     def write_image(self, image, slam):
-        img_fname = "{}.png".format(self.image_count)
+        img_fname = "{}pred_{}.png".format(self.folder, self.image_count)
         self.image_count += 1
         img_dict = {"pose":slam.robot.state.tolist(),
                     "imgfname":img_fname}
@@ -116,6 +129,7 @@ class OutputWriter:
         self.img_f.write(img_line+'\n')
         self.img_f.flush()
         cv2.imwrite(img_fname, image)
+        return f'pred_{self.image_count}.png'
 
 
 if __name__ == '__main__':
