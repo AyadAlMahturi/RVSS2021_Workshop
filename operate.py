@@ -35,7 +35,7 @@ class Operate:
         self.pred = np.zeros([240,320,3], dtype=np.uint8)
         self.img = np.zeros([240,320,3], dtype=np.uint8)
         self.aruco_img = np.zeros([240,320,3], dtype=np.uint8)
-        ckpt = "network/scripts/pretrained_weights.pth"
+        ckpt = "network/scripts/res18_skip_weights.pth"
         self.detector = Detector(ckpt,use_gpu=False)
         self.colour_map = np.ones([240,320,3], dtype=np.uint8)
         self.colour_map *= 100
