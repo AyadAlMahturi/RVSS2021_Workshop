@@ -63,7 +63,7 @@ class DataCollector:
                 if not os.path.exists(label_path):
                     os.makedirs(label_path)  
                 for i in tqdm(range(sample_per_model),  desc=model):
-                    self.shuffle_model(model, z_low=0.3, z_high=1)
+                    self.shuffle_model(model, z_low=0.3, z_high=1.5)
                     rospy.sleep(0.1)
                     if self.img is not None and self.depth is not None:
                         sample_name =  "%s_%i" % (model, i)
