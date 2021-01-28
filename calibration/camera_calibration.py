@@ -94,7 +94,7 @@ if __name__ == "__main__":
     print('Finished image collection.\n')
 
     # calibrate camera
-    print('Calibrating camera...')
+    # print('Calibrating camera...')
     # camera_calibration(dataDir)
     # print('Finished camera calibration.')
 
