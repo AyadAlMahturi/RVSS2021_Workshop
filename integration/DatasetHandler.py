@@ -121,7 +121,7 @@ class OutputWriter:
             json.dump(map_dict, map_f, indent=2)
             
     def write_image(self, image, slam):
-        img_fname = "{}{}.png".format(self.folder, self.image_count)
+        img_fname = "{}pred_{}.png".format(self.folder, self.image_count)
         self.image_count += 1
         img_dict = {"pose":slam.robot.state.tolist(),
                     "imgfname":img_fname}
@@ -129,6 +129,7 @@ class OutputWriter:
         self.img_f.write(img_line+'\n')
         self.img_f.flush()
         cv2.imwrite(img_fname, image)
+        return f'pred_{self.image_count}.png'
 
 
 if __name__ == '__main__':

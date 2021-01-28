@@ -14,3 +14,4 @@ src/data_collector/dataset
 *.DS_Store
 /test
 /record
+/workshop_output

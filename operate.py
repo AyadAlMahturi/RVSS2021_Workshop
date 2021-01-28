@@ -32,13 +32,13 @@ class Operate:
         else:
             self.pibot = PenguinPi(args.ip, args.port)
             
-        self.pred = None
+        self.pred = np.zeros([240,320,3], dtype=np.uint8)
         self.img = np.zeros([240,320,3], dtype=np.uint8)
         self.aruco_img = np.zeros([240,320,3], dtype=np.uint8)
         ckpt = "network/scripts/pretrained_weights.pth"
         self.detector = Detector(ckpt,use_gpu=False)
-        self.colour_map = np.zeros([240,320,3], dtype=np.uint8)
-
+        self.colour_map = np.ones([240,320,3], dtype=np.uint8)
+        self.colour_map *= 100
         # Set up subsystems
         camera_matrix, dist_coeffs, scale, baseline = self.getCalibParams(
             args.calib_dir, args.ip)
@@ -55,13 +55,14 @@ class Operate:
         else:
             self.data = None
 
-        self.output = dh.OutputWriter('system_output')
+        self.output = dh.OutputWriter('workshop_output')
         # TODO: reduce legend size
         self.timer = time.time()
         self.count_down = 180
         self.start_time = time.time()
         self.command = {'motion':[0, 0], 'inference': False, 'output': False, 'save_inference': False}
         self.close = False
+        self.pred_fname = ''
 
     def getCalibParams(self, datadir, ip):
         # Imports calibration parameters
@@ -177,14 +178,12 @@ class Operate:
             self.output.write_map(self.slam)
             self.command['output'] = False
         if self.command['save_inference']:
-            self.output.write_image(self.pred,self.slam)
+            self.pred_fname = self.output.write_image(self.pred, self.slam)
             # a=np.unique(self.pred)
             # print(a)
             self.command['save_inference'] = False
 
         
-
-
 if __name__ == "__main__":
     import argparse
 
@@ -198,6 +197,8 @@ if __name__ == "__main__":
 
     operate = Operate(args)
     
+    pygame.font.init() 
+    
     width, height = 760, 600
     canvas = pygame.display.set_mode((width, height))
     pygame.display.set_caption('RVSS 2021 Workshop')
@@ -205,8 +206,8 @@ if __name__ == "__main__":
     pygame.display.set_icon(icon)
     canvas.fill((0, 0, 0))
     splash = pygame.image.load('pics/rvss_splash.png')
-    splash = pygame.transform.scale(splash, (width, height))
-    canvas.blit(splash, (-2, -1))
+    # splash = pygame.transform.scale(splash, (width, height))
+    canvas.blit(splash, (0, 0))
     pygame.display.update()
 
     print('Use the arrow keys to drive the robot.')
@@ -220,6 +221,7 @@ if __name__ == "__main__":
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN:
                 start = True
+    font = pygame.font.SysFont('Comic Sans MS', 30)
 
     while start:
         operate.update_keyboard()
@@ -232,7 +234,13 @@ if __name__ == "__main__":
         img_surface = pygame.surfarray.make_surface(operate.draw())
         img_surface = pygame.transform.flip(img_surface, True, False)
         img_surface = pygame.transform.rotozoom(img_surface, 90, 1)
+        if operate.pred_fname == '':
+            notification = 'Press "n" to Save Prediction'
+        else:
+            notification = f'Prediction is saved to {operate.pred_fname}'
+        text_surface = font.render(notification, False, (200, 200, 200))
         canvas.blit(img_surface, (0, 0))
+        canvas.blit(text_surface, (40, 570))
         pygame.display.update()
 
 
