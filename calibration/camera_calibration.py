@@ -71,7 +71,7 @@ if __name__ == "__main__":
 
     calib = calibration(args)
 
-    width, height = 760, 600
+    width, height = 640, 480
     canvas = pygame.display.set_mode((width, height))
     pygame.display.set_caption('Calibration')
     canvas.fill((0, 0, 0))
