@@ -17,7 +17,6 @@ def calibrateWheelRadius():
 
     for wheel_vel in wheel_velocities_range:
         print("Driving at {} ticks/s.".format(wheel_vel))
-
         # Repeat the test until the correct time is found.
         while True:
             delta_time = input("Input the time to drive in seconds: ")
@@ -28,7 +27,7 @@ def calibrateWheelRadius():
                 continue
 
             # Drive the robot at the given speed for the given time
-            ppi.set_velocity(wheel_vel, wheel_vel, delta_time)
+            ppi.set_velocity([1, 0], tick=wheel_vel, time=delta_time)
 
             uInput = input("Did the robot travel 1m?[y/N]")
             if uInput == 'y':
@@ -59,7 +58,6 @@ def calibrateBaseline(scale):
 
     for wheel_vel in wheel_velocities_range:
         print("Driving at {} ticks/s.".format(wheel_vel))
-
         # Repeat the test until the correct time is found.
         while True:
             delta_time = input("Input the time to drive in seconds: ")
@@ -70,7 +68,7 @@ def calibrateBaseline(scale):
                 continue
 
             # Spin the robot at the given speed for the given time
-            ppi.set_velocity(-wheel_vel, wheel_vel, delta_time)
+            ppi.set_velocity([0, 1], tick=20,turning_tick=wheel_vel, time = delta_time)
 
             uInput = input("Did the robot spin 360deg?[y/N]")
             if uInput == 'y':
