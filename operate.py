@@ -106,18 +106,21 @@ class Operate:
        
     def update_slam(self):
         lms, self.aruco_img = self.aruco_det.detect_marker_positions(self.img)
+        if self.command['slam_on']:      
+            self.slam.add_landmarks(lms)
+            self.slam.update(lms)
+
         if self.recover_slam:
             isrecoverable = self.slam.recover_from_pause(lms)
             if not isrecoverable:
                 self.command['slam_on'] = False
+                print('Not enough landmarks observed!')
 
             self.recover_slam = False
             
 
 
-        if self.command['slam_on']:      
-            self.slam.add_landmarks(lms)
-            self.slam.update(lms)
+        
 
     def detect_fruit(self):
         if self.detect is None:

@@ -110,6 +110,8 @@ class EKF:
             return False
 
         R,t = self.umeyama(lm_new,lm_prev)
+        print(R)
+        print(t)
         theta = math.atan2(R[0][0],R[1][0])
         self.robot.state[0]=t[0]
         self.robot.state[1]=t[1]
@@ -192,6 +194,12 @@ class EKF:
         canvas = cv2.circle(canvas, start_point_uv , radius=3, color=(0, 30, 56), thickness=4)
         canvas = cv2.arrowedLine(canvas,start_point_uv,  
             end_point_uv, color=(0, 30, 56), thickness=2, tipLength=0.5) 
+        
+        p_robot = self.P[0:2,0:2]
+        axes_len,angle = self.make_ellipse(p_robot)
+        canvas = cv2.ellipse(canvas, start_point_uv, 
+                    (int(axes_len[0]*m2pixel), int(axes_len[1]*m2pixel)),
+                    angle, 0, 360, (244, 69, 96), 1)
         # draw landmards
         if self.number_landmarks() > 0:
             for i in range(len(self.markers[0,:])):
@@ -199,9 +207,10 @@ class EKF:
                 coor_ = self.to_im_coor(xy, res, m2pixel)
                 canvas = cv2.circle(canvas, coor_, radius=3, color=(155, 5, 23), thickness=4)
                 # plot covariance
+
                 lmi = self.markers[:,i]
                 Plmi = self.P[3+2*i:3+2*(i+1),3+2*i:3+2*(i+1)]
-                axes_len, angle = self.make_ellipse(lmi, Plmi)
+                axes_len, angle = self.make_ellipse(Plmi)
                 canvas = cv2.ellipse(canvas, coor_, 
                     (int(axes_len[0]*m2pixel), int(axes_len[1]*m2pixel)),
                     angle, 0, 360, (244, 69, 96), 1)
@@ -212,7 +221,7 @@ class EKF:
         return canvas
     
     @staticmethod
-    def make_ellipse(x, P):
+    def make_ellipse(P):
         e_vals, e_vecs = np.linalg.eig(P)
         idx = e_vals.argsort()[::-1]   
         e_vals = e_vals[idx]
@@ -259,3 +268,47 @@ class EKF:
         t = mean_to - R.dot(mean_from)
     
         return R, t
+    
+    @staticmethod
+    def umeyama_alignment(x, y, with_scale = False):
+
+        if x.shape != y.shape:
+            raise GeometryException("data matrices must have the same shape")
+
+        # m = dimension, n = nr. of data points
+        m, n = x.shape
+
+        # means, eq. 34 and 35
+        mean_x = x.mean(axis=1)
+        mean_y = y.mean(axis=1)
+
+        # variance, eq. 36
+        # "transpose" for column subtraction
+        sigma_x = 1.0 / n * (np.linalg.norm(x - mean_x[:, np.newaxis])**2)
+
+        # covariance matrix, eq. 38
+        outer_sum = np.zeros((m, m))
+        for i in range(n):
+            outer_sum += np.outer((y[:, i] - mean_y), (x[:, i] - mean_x))
+        cov_xy = np.multiply(1.0 / n, outer_sum)
+
+        # SVD (text betw. eq. 38 and 39)
+        u, d, v = np.linalg.svd(cov_xy)
+        if np.count_nonzero(d > np.finfo(d.dtype).eps) < m - 1:
+            raise GeometryException("Degenerate covariance rank, "
+                                    "Umeyama alignment is not possible")
+
+        # S matrix, eq. 43
+        s = np.eye(m)
+        if np.linalg.det(u) * np.linalg.det(v) < 0.0:
+            # Ensure a RHS coordinate system (Kabsch algorithm).
+            s[m - 1, m - 1] = -1
+
+        # rotation, eq. 40
+        r = u.dot(s).dot(v)
+
+        # scale & translation, eq. 42 and 41
+        c = 1 / sigma_x * np.trace(np.diag(d).dot(s)) if with_scale else 1.0
+        t = mean_y - np.multiply(c, r.dot(mean_x))
+
+        return r, t, c
