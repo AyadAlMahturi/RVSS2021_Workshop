@@ -94,6 +94,8 @@ class EKF:
         if not measurements:
             return False
         
+
+
         lm_new = np.zeros((2,0))
         lm_prev = np.zeros((2,0))
         tag = []
@@ -104,9 +106,15 @@ class EKF:
                 lm_idx = np.where(self.taglist == lm.tag)[0][0]
                 lm_prev = np.concatenate((lm_prev,self.markers[:,lm_idx].reshape(2, 1)), axis=1)
         
+        if int(lm_new.shape[1])<2:
+            return False
+
         R,t = self.umeyama(lm_new,lm_prev)
-        theta = math.atan2(R[1,1],R[2,1])
-        # self.robot.state = 
+        theta = math.atan2(R[0][0],R[1][0])
+        self.robot.state[0]=t[0]
+        self.robot.state[1]=t[1]
+        self.robot.state[2]=theta
+        return True
 
 
 

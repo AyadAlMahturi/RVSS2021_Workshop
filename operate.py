@@ -35,8 +35,12 @@ class Operate:
         self.pred = np.zeros([240,320,3], dtype=np.uint8)
         self.img = np.zeros([240,320,3], dtype=np.uint8)
         self.aruco_img = np.zeros([240,320,3], dtype=np.uint8)
-        ckpt = "network/scripts/res18_skip_weights.pth"
-        self.detector = Detector(ckpt,use_gpu=False)
+        # ckpt = "network/scripts/res18_skip_weights.pth"S
+        ckpt = ""
+        if ckpt == "":
+            self.detect = None
+        else:
+            Sself.detector = Detector(ckpt, use_gpu=False)
         self.colour_map = np.ones([240,320,3], dtype=np.uint8)
         self.colour_map *= 100
         # Set up subsystems
@@ -64,6 +68,8 @@ class Operate:
         self.close = False
         self.pred_fname = ''
         self.recover_slam = False
+        slam_splash = cv2.imread('pics/slam_splash.png')
+        self.slam_splash = cv2.resize(slam_splash, (320, 520))
 
     def getCalibParams(self, datadir, ip):
         # Imports calibration parameters
@@ -99,21 +105,29 @@ class Operate:
             self.data.write_image(self.img)
        
     def update_slam(self):
-        lms, self.aruco_img = self.aruco_det.detect_marker_positions(self.img) 
-        
-        # if self.recover_slam:
-        #     self.slam.recover_from_pause(lms)
-        #     self.recover_slam = False
+        lms, self.aruco_img = self.aruco_det.detect_marker_positions(self.img)
+        if self.recover_slam:
+            isrecoverable = self.slam.recover_from_pause(lms)
+            if not isrecoverable:
+                self.command['slam_on'] = False
+
+            self.recover_slam = False
+            
+
 
         if self.command['slam_on']:      
             self.slam.add_landmarks(lms)
             self.slam.update(lms)
 
-
     def detect_fruit(self):
-        if self.command['inference']:
+        if self.detect is None:
+            warning = "No valid Checkpoint"
+            cv2.putText(self.colour_map, warning, (40, 120),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (200, 200, 200), thickness=2)
+        elif self.command['inference'] and self.detect is not None:
             self.pred, self.colour_map = self.detector.detect_single_image(self.img)
             self.command['inference'] = False
+        
 
     def draw(self):        
         pad = 40
@@ -128,18 +142,14 @@ class Operate:
                     font, 0.8, (200, 200, 200), thickness=2)
         cv2.putText(canvas, "Fruit Detection", (110, 310),
                     font, 0.8, (200, 200, 200), thickness=2)
-        time_remain = self.count_down - time.time() + self.start_time
-        if time_remain > 0:
-            time_remain = f'Count Down: {time_remain:03.0f}s'
-        elif int(time_remain)%2 == 0:
-            time_remain = "Time Is Up !!!"
-        else:
-            time_remain = ""
-        cv2.putText(canvas, time_remain, (490, 590),
-                    font, 0.8, (200, 200, 200), thickness=2)
         # slam view
-        canvas[pad:480+2*pad, 2*pad+320:2*pad+2*320, :] = \
-            self.slam.draw_slam_state(res=(320, 480+pad))
+        if self.command['slam_on']:
+            canvas[pad:480+2*pad, 2*pad+320:2*pad+2*320, :] = \
+                self.slam.draw_slam_state(res=(320, 480+pad))
+        else:
+            canvas[pad:480+2*pad, 2*pad+320:2*pad+2*320, :] = \
+                self.slam_splash
+
         # robot view
         canvas[pad:240+pad, pad:320+pad, :] = \
              cv2.resize(self.aruco_img, (320, 240))
@@ -210,8 +220,6 @@ if __name__ == "__main__":
     parser.add_argument("--save_data", action='store_true')
     parser.add_argument("--play_data", action='store_true')
     args, _ = parser.parse_known_args()
-
-    operate = Operate(args)
     
     pygame.font.init() 
     
@@ -237,7 +245,9 @@ if __name__ == "__main__":
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN:
                 start = True
-    font = pygame.font.SysFont('Comic Sans MS', 30)
+    pygame_font = pygame.font.SysFont('Comic Sans MS', 30)
+
+    operate = Operate(args)
 
     while start:
         operate.update_keyboard()
@@ -250,13 +260,25 @@ if __name__ == "__main__":
         img_surface = pygame.surfarray.make_surface(operate.draw())
         img_surface = pygame.transform.flip(img_surface, True, False)
         img_surface = pygame.transform.rotozoom(img_surface, 90, 1)
+        canvas.blit(img_surface, (0, 0))
+
         if operate.pred_fname == '':
             notification = 'Press "n" to Save Prediction'
         else:
             notification = f'Prediction is saved to {operate.pred_fname}'
-        text_surface = font.render(notification, False, (200, 200, 200))
-        canvas.blit(img_surface, (0, 0))
+        text_surface = pygame_font.render(notification, False, (200, 200, 200))
         canvas.blit(text_surface, (40, 570))
+
+        time_remain = operate.count_down - time.time() + operate.start_time
+        if time_remain > 0:
+            time_remain = f'Count Down: {time_remain:03.0f}s'
+        elif int(time_remain)%2 == 0:
+            time_remain = "Time Is Up !!!"
+        else:
+            time_remain = ""
+        count_down_surface = pygame_font.render(time_remain, False, (200, 200, 200))
+        canvas.blit(count_down_surface, (470, 570))
+        #
         pygame.display.update()
 
 
