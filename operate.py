@@ -60,9 +60,10 @@ class Operate:
         self.timer = time.time()
         self.count_down = 180
         self.start_time = time.time()
-        self.command = {'motion':[0, 0], 'inference': False, 'output': False, 'save_inference': False}
+        self.command = {'motion':[0, 0], 'inference': False, 'output': False, 'save_inference': False, 'reset_slam': False, 'slam_start': False,'slam_on':False}
         self.close = False
         self.pred_fname = ''
+        self.recover_slam = False
 
     def getCalibParams(self, datadir, ip):
         # Imports calibration parameters
@@ -88,18 +89,26 @@ class Operate:
             self.data.write_keyboard(lv, rv)
         dt = time.time() - self.timer
         drive_meas = measure.Drive(lv, rv, dt)
-        self.slam.predict(drive_meas)
+        if self.command['slam_on']:
+            self.slam.predict(drive_meas)
         self.timer = time.time()
 
     def take_pic(self):
         self.img = self.pibot.get_image()
         if not self.data is None:
             self.data.write_image(self.img)
-    
+       
     def update_slam(self):
-        lms, self.aruco_img = self.aruco_det.detect_marker_positions(self.img)       
-        self.slam.add_landmarks(lms)
-        self.slam.update(lms)
+        lms, self.aruco_img = self.aruco_det.detect_marker_positions(self.img) 
+        
+        # if self.recover_slam:
+        #     self.slam.recover_from_pause(lms)
+        #     self.recover_slam = False
+
+        if self.command['slam_on']:      
+            self.slam.add_landmarks(lms)
+            self.slam.update(lms)
+
 
     def detect_fruit(self):
         if self.command['inference']:
@@ -158,6 +167,13 @@ class Operate:
                 self.command['output'] = True
             if event.type == pygame.KEYDOWN and event.key == pygame.K_n:
                 self.command['save_inference'] = True
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
+                self.command['reset_slam'] = True
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
+                if self.command['slam_on'] == False and self.command['slam_start'] == True:
+                    self.recover_slam = True
+                self.command['slam_start'] = True
+                self.command['slam_on'] = not self.command['slam_on'] 
             if event.type == pygame.QUIT:
                 self.close = True
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:

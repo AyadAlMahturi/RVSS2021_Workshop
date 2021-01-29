@@ -1,6 +1,7 @@
 import numpy as np
 from mapping_utils import MappingUtils
 import cv2
+import math
 
 class EKF:
     # Implementation of an EKF for SLAM
@@ -88,6 +89,27 @@ class EKF:
 
         # print(self.P)
         # print("MarkerMeasurement residual:\n", y)
+    
+    def recover_from_pause(self,measurements):
+        if not measurements:
+            return False
+        
+        lm_new = np.zeros((2,0))
+        lm_prev = np.zeros((2,0))
+        tag = []
+        for lm in measurements:
+            if lm.tag in self.taglist:
+                lm_new = np.concatenate((lm_new, lm.position), axis=1)
+                tag.append(int(lm.tag))
+                lm_idx = np.where(self.taglist == lm.tag)[0][0]
+                lm_prev = np.concatenate((lm_prev,self.markers[:,lm_idx].reshape(2, 1)), axis=1)
+        
+        R,t = self.umeyama(lm_new,lm_prev)
+        theta = math.atan2(R[1,1],R[2,1])
+        # self.robot.state = 
+
+
+
 
     def state_transition(self, raw_drive_meas):
         n = self.number_landmarks()*2 + 3
@@ -191,3 +213,41 @@ class EKF:
         axes_len = e_vals*2*alpha
         angle = np.arctan(e_vecs[0, 0]/e_vecs[1, 0])
         return (axes_len[0], axes_len[1]), angle
+
+    @staticmethod
+    def umeyama(from_points, to_points):
+
+    
+        assert len(from_points.shape) == 2, \
+            "from_points must be a m x n array"
+        assert from_points.shape == to_points.shape, \
+            "from_points and to_points must have the same shape"
+        
+        N = from_points.shape[1]
+        m = 2
+        
+        mean_from = from_points.mean(axis = 1).reshape((2,1))
+        mean_to = to_points.mean(axis = 1).reshape((2,1))
+        
+        delta_from = from_points - mean_from # N x m
+        delta_to = to_points - mean_to       # N x m
+        
+        sigma_from = (delta_from * delta_from).sum(axis = 1).mean()
+        sigma_to = (delta_to * delta_to).sum(axis = 1).mean()
+        
+        cov_matrix = delta_to @ delta_from.T / N
+        
+        U, d, V_t = np.linalg.svd(cov_matrix, full_matrices = True)
+        cov_rank = np.linalg.matrix_rank(cov_matrix)
+        S = np.eye(m)
+        
+        if cov_rank >= m - 1 and np.linalg.det(cov_matrix) < 0:
+            S[m-1, m-1] = -1
+        elif cov_rank < m-1:
+            raise ValueError("colinearility detected in covariance matrix:\n{}".format(cov_matrix))
+        
+        R = U.dot(S).dot(V_t)
+        # c = (d * S.diagonal()).sum() / sigma_from
+        t = mean_to - R.dot(mean_from)
+    
+        return R, t
