@@ -106,16 +106,13 @@ class Operate:
        
     def update_slam(self, drive_meas):
         lms, self.aruco_img = self.aruco_det.detect_marker_positions(self.img)
-        
         if self.recover_slam:
             is_success = self.slam.recover_from_pause(lms)
-            if not is_success:
-                self.slam_switch_count += 1
+            if is_success:
+                self.recover_slam = False
+            else:
                 print('Not enough landmarks observed!')
-            self.recover_slam = False
-            # self.debug_flag = True
-
-        if self.slam_switch_count%2: # and not self.debug_flag:
+        elif self.slam_switch_count%2:
             self.slam.predict(drive_meas)
             self.slam.add_landmarks(lms)
             self.slam.update(lms)
