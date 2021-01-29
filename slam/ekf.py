@@ -103,17 +103,18 @@ class EKF:
                     tag.append(int(lm.tag))
                     lm_idx = np.where(self.taglist == lm.tag)[0][0]
                     lm_prev = np.concatenate((lm_prev,self.markers[:,lm_idx].reshape(2, 1)), axis=1)
-            if int(lm_new.shape[1])<2:
-                return False 
-            R,t = self.umeyama(lm_new, lm_prev)
-            # R = R.transpose()
-            # t = -R@t
-            theta = math.atan2(R[0][1],R[0][0])
-            print(list(t[:2]), theta)
-            self.robot.state[:2]=t[:2]
-            # self.robot.state[1]=t[1]
-            self.robot.state[2]=theta
-            return True
+            if int(lm_new.shape[1]) > 2:
+                R,t = self.umeyama(lm_new, lm_prev)
+                # R = R.transpose()
+                # t = -R@t
+                theta = math.atan2(R[0][1],R[0][0])
+                print(list(t[:2]), theta)
+                self.robot.state[:2]=t[:2]
+                # self.robot.state[1]=t[1]
+                self.robot.state[2]=theta
+                return True
+            else:
+                return False
 
     def state_transition(self, raw_drive_meas):
         n = self.number_landmarks()*2 + 3

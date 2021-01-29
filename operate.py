@@ -73,7 +73,7 @@ class Operate:
         self.notification = 'Press ENTER to start SLAM'
         self.slam_switch_count = 0
         self.output_state = None
-        # self.debug_flag = False
+        self.debug_flag = False
 
     def getCalibParams(self, datadir, ip):
         # Imports calibration parameters
@@ -114,11 +114,12 @@ class Operate:
             is_success = self.slam.recover_from_pause(lms)
             if is_success:
                 self.notification = 'Robot pose is successfuly recovered'
+                self.debug_flag  = True
             else:
-                self.notification = 'Recover failed, need more landmarks!'
+                self.notification = 'Recover failed, need >= 3 landmarks!'
             self.recover_slam = False
 
-        if self.slam_switch_count%2:
+        if self.slam_switch_count%2 and not self.debug_flag:
             self.slam.predict(drive_meas)
             self.slam.add_landmarks(lms)
             self.slam.update(lms)
