@@ -35,12 +35,12 @@ class Operate:
         self.pred = np.zeros([240,320,3], dtype=np.uint8)
         self.img = np.zeros([240,320,3], dtype=np.uint8)
         self.aruco_img = np.zeros([240,320,3], dtype=np.uint8)
-        # ckpt = "network/scripts/res18_skip_weights.pth"S
-        ckpt = ""
+        ckpt = "network/scripts/res18_skip_weights.pth"
+        # ckpt = ""
         if ckpt == "":
-            self.detect = None
+            self.detector = None
         else:
-            Sself.detector = Detector(ckpt, use_gpu=False)
+            self.detector = Detector(ckpt, use_gpu=False)
         self.colour_map = np.ones([240,320,3], dtype=np.uint8)
         self.colour_map *= 100
         # Set up subsystems
@@ -63,13 +63,16 @@ class Operate:
         self.timer = time.time()
         self.count_down = 180
         self.start_time = time.time()
-        self.command = {'motion':[0, 0], 'inference': False, 'output': False, 'save_inference': False, 'reset_slam': False, 'slam_on':False}
+        self.command = {'motion':[0, 0], 
+                        'inference': False,
+                        'output': False,
+                        'save_inference': False}
         self.close = False
         self.pred_fname = ''
         self.recover_slam = False
-        slam_splash = cv2.imread('pics/slam_splash.png')
-        self.slam_splash = cv2.resize(slam_splash, (320, 520))
+        self.notification = 'Press ENTER to start SLAM'
         self.slam_switch_count = 0
+        self.output_state = None
         # self.debug_flag = False
 
     def getCalibParams(self, datadir, ip):
@@ -107,24 +110,30 @@ class Operate:
     def update_slam(self, drive_meas):
         lms, self.aruco_img = self.aruco_det.detect_marker_positions(self.img)
         if self.recover_slam:
+            self.slam_on = False
             is_success = self.slam.recover_from_pause(lms)
             if is_success:
-                self.recover_slam = False
+                self.notification = 'Robot pose is successfuly recovered'
             else:
-                print('Not enough landmarks observed!')
-        elif self.slam_switch_count%2:
+                self.notification = 'Recover failed, need more landmarks!'
+            self.recover_slam = False
+
+        if self.slam_switch_count%2:
             self.slam.predict(drive_meas)
             self.slam.add_landmarks(lms)
             self.slam.update(lms)
+            self.slam_on = True
 
     def detect_fruit(self):
-        if self.detect is None:
+        if self.detector is None:
             warning = "No valid Checkpoint"
             cv2.putText(self.colour_map, warning, (40, 120),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (200, 200, 200), thickness=2)
-        elif self.command['inference'] and self.detect is not None:
+        elif self.command['inference'] and self.detector is not None:
             self.pred, self.colour_map = self.detector.detect_single_image(self.img)
             self.command['inference'] = False
+            self.output_state = (self.pred, self.slam)
+            self.notification = f'{len(np.unique(self.pred))-1} fruit type(s) detected'
         
 
     def draw(self):        
@@ -180,6 +189,10 @@ class Operate:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
                 if (self.slam_switch_count)>0 and (not self.slam_switch_count%2):
                     self.recover_slam = True
+                if not self.slam_switch_count%2:
+                    self.notification = 'SLAM is running'
+                else:
+                    self.notification = 'SLAM is paused'
                 self.slam_switch_count += 1
             if event.type == pygame.QUIT:
                 self.close = True
@@ -189,22 +202,20 @@ class Operate:
             pygame.quit()
             sys.exit()
 
-    # TODO: update record_data
-    # def record_data(self):
-    #     # Save data for network processing
-    #     if self.keyboard.get_net_signal():
-    #         self.output.write_image(self.img, self.slam)
-    #     if self.keyboard.get_slam_signal():
-    #         self.output.write_map(self.slam)
     def record_data(self):
         if self.command['output']:
             self.output.write_map(self.slam)
+            self.notification = 'Map is saved'
             self.command['output'] = False
         if self.command['save_inference']:
-            self.pred_fname = self.output.write_image(self.pred, self.slam)
-            # a=np.unique(self.pred)
-            # print(a)
+            if self.output_state is not None:
+                self.pred_fname = self.output.write_image(self.output_state[0],
+                                                        self.output_state[1])
+                self.notification = f'Prediction is saved to {operate.pred_fname}'
+            else:
+                self.notification = f'No prediction in buffer, save ignored'
             self.command['save_inference'] = False
+        
 
         
 if __name__ == "__main__":
@@ -231,10 +242,10 @@ if __name__ == "__main__":
     canvas.blit(splash, (0, 0))
     pygame.display.update()
 
-    print('Use the arrow keys to drive the robot.')
-    print('Press P to detect the fruit.')
-    print('Press S to record the SLAM map.')
-    print('Press N to record the inference and robot position.')
+    # print(f'Use the arrow keys to drive the robot.')
+    # print('Press P to detect the fruit.')
+    # print('Press S to record the SLAM map.')
+    # print('Press N to record the inference and robot position.')
 
     start = False
 
@@ -259,11 +270,7 @@ if __name__ == "__main__":
         img_surface = pygame.transform.rotozoom(img_surface, 90, 1)
         canvas.blit(img_surface, (0, 0))
 
-        if operate.pred_fname == '':
-            notification = 'Press "n" to Save Prediction'
-        else:
-            notification = f'Prediction is saved to {operate.pred_fname}'
-        text_surface = pygame_font.render(notification, False, (200, 200, 200))
+        text_surface = pygame_font.render(operate.notification, False, (200, 200, 200))
         canvas.blit(text_surface, (40, 570))
 
         time_remain = operate.count_down - time.time() + operate.start_time
