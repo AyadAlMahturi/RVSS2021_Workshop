@@ -60,16 +60,17 @@ class Operate:
             self.data = None
 
         self.output = dh.OutputWriter('workshop_output')
-        # TODO: reduce legend size
         self.timer = time.time()
         self.count_down = 180
         self.start_time = time.time()
-        self.command = {'motion':[0, 0], 'inference': False, 'output': False, 'save_inference': False, 'reset_slam': False, 'slam_start': False,'slam_on':False}
+        self.command = {'motion':[0, 0], 'inference': False, 'output': False, 'save_inference': False, 'reset_slam': False, 'slam_on':False}
         self.close = False
         self.pred_fname = ''
         self.recover_slam = False
         slam_splash = cv2.imread('pics/slam_splash.png')
         self.slam_splash = cv2.resize(slam_splash, (320, 520))
+        self.slam_switch_count = 0
+        # self.debug_flag = False
 
     def getCalibParams(self, datadir, ip):
         # Imports calibration parameters
@@ -95,32 +96,29 @@ class Operate:
             self.data.write_keyboard(lv, rv)
         dt = time.time() - self.timer
         drive_meas = measure.Drive(lv, rv, dt)
-        if self.command['slam_on']:
-            self.slam.predict(drive_meas)
         self.timer = time.time()
+        return drive_meas
 
     def take_pic(self):
         self.img = self.pibot.get_image()
         if not self.data is None:
             self.data.write_image(self.img)
        
-    def update_slam(self):
+    def update_slam(self, drive_meas):
         lms, self.aruco_img = self.aruco_det.detect_marker_positions(self.img)
-        if self.command['slam_on']:      
+        
+        if self.recover_slam:
+            is_success = self.slam.recover_from_pause(lms)
+            if not is_success:
+                self.slam_switch_count += 1
+                print('Not enough landmarks observed!')
+            self.recover_slam = False
+            # self.debug_flag = True
+
+        if self.slam_switch_count%2: # and not self.debug_flag:
+            self.slam.predict(drive_meas)
             self.slam.add_landmarks(lms)
             self.slam.update(lms)
-
-        if self.recover_slam:
-            isrecoverable = self.slam.recover_from_pause(lms)
-            if not isrecoverable:
-                self.command['slam_on'] = False
-                print('Not enough landmarks observed!')
-
-            self.recover_slam = False
-            
-
-
-        
 
     def detect_fruit(self):
         if self.detect is None:
@@ -146,12 +144,12 @@ class Operate:
         cv2.putText(canvas, "Fruit Detection", (110, 310),
                     font, 0.8, (200, 200, 200), thickness=2)
         # slam view
-        if self.command['slam_on']:
+        if self.slam_switch_count%2:
             canvas[pad:480+2*pad, 2*pad+320:2*pad+2*320, :] = \
                 self.slam.draw_slam_state(res=(320, 480+pad))
         else:
             canvas[pad:480+2*pad, 2*pad+320:2*pad+2*320, :] = \
-                self.slam_splash
+                self.slam.draw_slam_state(res=(320, 480+pad))/2
 
         # robot view
         canvas[pad:240+pad, pad:320+pad, :] = \
@@ -183,10 +181,9 @@ class Operate:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
                 self.command['reset_slam'] = True
             if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
-                if self.command['slam_on'] == False and self.command['slam_start'] == True:
+                if (self.slam_switch_count)>0 and (not self.slam_switch_count%2):
                     self.recover_slam = True
-                self.command['slam_start'] = True
-                self.command['slam_on'] = not self.command['slam_on'] 
+                self.slam_switch_count += 1
             if event.type == pygame.QUIT:
                 self.close = True
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
@@ -254,9 +251,9 @@ if __name__ == "__main__":
 
     while start:
         operate.update_keyboard()
-        operate.control()
         operate.take_pic()
-        operate.update_slam()
+        drive_meas = operate.control()
+        operate.update_slam(drive_meas)
         operate.record_data()
         operate.detect_fruit()
         # visualise
