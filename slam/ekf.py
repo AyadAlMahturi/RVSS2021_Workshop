@@ -210,31 +210,22 @@ class EKF:
         y_im = int(y*m2pixel+h/2.0)
         return (x_im, y_im)
 
-    def draw_slam_state(self, res = (320, 500)):
-        font = cv2.FONT_HERSHEY_SIMPLEX 
+    def draw_slam_state(self, res = (320, 500), not_pause=True):
         # Draw landmarks
-        m2pixel = 80
-        bg_rgb = np.array([213, 213, 213]).reshape(1, 1, 3)
+        m2pixel = 100
+        if not_pause:
+            bg_rgb = np.array([213, 213, 213]).reshape(1, 1, 3)
+        else:
+            bg_rgb = np.array([120, 120, 120]).reshape(1, 1, 3)
         canvas = np.ones((res[1], res[0], 3))*bg_rgb.astype(np.uint8)
         # in meters, 
         lms_xy = self.markers[:2, :]
         robot_xy = self.robot.state[:2, 0].reshape((2, 1))
-        if self.robot_init_state is None:
-            self.robot_init_state = robot_xy
         lms_xy = lms_xy - robot_xy
-        robot_xy = robot_xy - robot_xy
-
+        robot_xy = robot_xy*0
+        robot_theta = self.robot.state[2,0]
         # plot robot
-        arrow_scale = 0.3
-        end_point_x = arrow_scale*np.cos(self.robot.state[2,0]) + robot_xy[0, 0]
-        end_point_y =  arrow_scale*np.sin(self.robot.state[2,0]) + robot_xy[1, 0]
-        end_point = (end_point_x, end_point_y)
-        start_point = (robot_xy[0,0], robot_xy[1,0]) 
-        start_point_uv = self.to_im_coor(start_point, res, m2pixel)
-        end_point_uv = self.to_im_coor(end_point, res, m2pixel)
-        canvas = cv2.circle(canvas, start_point_uv , radius=3, color=(0, 30, 56), thickness=4)
-        canvas = cv2.arrowedLine(canvas,start_point_uv,  
-            end_point_uv, color=(0, 30, 56), thickness=2, tipLength=0.5) 
+        start_point_uv = self.to_im_coor((0, 0), res, m2pixel)
         
         p_robot = self.P[0:2,0:2]
         axes_len,angle = self.make_ellipse(p_robot)
@@ -246,56 +237,34 @@ class EKF:
             for i in range(len(self.markers[0,:])):
                 xy = (lms_xy[0, i], lms_xy[1, i])
                 coor_ = self.to_im_coor(xy, res, m2pixel)
-                canvas = cv2.circle(canvas, coor_, radius=3, color=(155, 5, 23), thickness=4)
                 # plot covariance
-
-                lmi = self.markers[:,i]
                 Plmi = self.P[3+2*i:3+2*(i+1),3+2*i:3+2*(i+1)]
                 axes_len, angle = self.make_ellipse(Plmi)
                 canvas = cv2.ellipse(canvas, coor_, 
                     (int(axes_len[0]*m2pixel), int(axes_len[1]*m2pixel)),
                     angle, 0, 360, (244, 69, 96), 1)
-                # print text
-                text_coor_ = (coor_[0]+5, coor_[1])
-                cv2.putText(canvas, f'{self.taglist[i]}',
-                 text_coor_, font, 0.5, (0, 30, 56), 1, cv2.LINE_AA)
-        return canvas
-    
-    def draw_slam_state_pygame(self, res = (320, 500)):
-        surface = pygame.Surface(res)
-        surface.fill((213, 213, 213))
-        m2pixel = 80
-        # in meters, 
-        lms_xy = self.markers[:2, :]
-        robot_xy = self.robot.state[:2, 0].reshape((2, 1))
-        lms_xy = lms_xy - robot_xy
-        robot_xy = robot_xy*0
-        robot_theta = self.robot.state[2,0]
-        # plot robot
-        start_point = (robot_xy[0,0], robot_xy[1,0]) 
-        start_point_uv = self.to_im_coor(start_point, res, m2pixel)
-        surface.blit(pygame.transform.rotate(self.pibot_pic, robot_theta*114.59+90),
-                    start_point_uv)
-        
-        # p_robot = self.P[0:2,0:2]
-        # axes_len,angle = self.make_ellipse(p_robot)
-        # canvas = cv2.ellipse(canvas, start_point_uv, 
-        #             (int(axes_len[0]*m2pixel), int(axes_len[1]*m2pixel)),
-        #             angle, 0, 360, (0, 30, 56), 1)
-        # draw landmards
+
+        surface = pygame.surfarray.make_surface(np.rot90(canvas))
+        surface = pygame.transform.flip(surface, True, False)
+        surface.blit(self.rot_center(self.pibot_pic, robot_theta*57.3),
+                    (start_point_uv[0]-15, start_point_uv[1]-15))
         if self.number_landmarks() > 0:
             for i in range(len(self.markers[0,:])):
                 xy = (lms_xy[0, i], lms_xy[1, i])
                 coor_ = self.to_im_coor(xy, res, m2pixel)
-                surface.blit(self.lm_pics[self.taglist[i]-1], coor_)
-                # plot covariance
-                # lmi = self.markers[:,i]
-                # Plmi = self.P[3+2*i:3+2*(i+1),3+2*i:3+2*(i+1)]
-                # axes_len, angle = self.make_ellipse(Plmi)
-                # canvas = cv2.ellipse(canvas, coor_, 
-                #     (int(axes_len[0]*m2pixel), int(axes_len[1]*m2pixel)),
-                #     angle, 0, 360, (244, 69, 96), 1)
+                surface.blit(self.lm_pics[self.taglist[i]-1],
+                 (coor_[0]-5, coor_[1]-5))
         return surface
+
+    @staticmethod
+    def rot_center(image, angle):
+        """rotate an image while keeping its center and size"""
+        orig_rect = image.get_rect()
+        rot_image = pygame.transform.rotate(image, angle)
+        rot_rect = orig_rect.copy()
+        rot_rect.center = rot_image.get_rect().center
+        rot_image = rot_image.subsurface(rot_rect).copy()
+        return rot_image       
 
     @staticmethod
     def make_ellipse(P):

@@ -63,8 +63,9 @@ class Operate:
         self.detector_output = np.zeros([240,320], dtype=np.uint8)
         self.img = np.zeros([240,320,3], dtype=np.uint8)
         self.aruco_img = np.zeros([240,320,3], dtype=np.uint8)
-        self.network_vis = np.ones([240,320,3], dtype=np.uint8) * 100
-        self.gui_mask = pygame.image.load('pics/gui_mask.png')
+        self.network_vis = cv2.imread('pics/rvss_8bit/detector_splash.png')
+        print(self.network_vis)
+        self.bg = pygame.image.load('pics/gui_mask.jpg')
 
 
     def control(self):       
@@ -102,11 +103,7 @@ class Operate:
             self.ekf.update(lms)
 
     def detect_fruit(self):
-        if self.detector is None:
-            warning = "No valid Checkpoint"
-            cv2.putText(self.network_vis, warning, (40, 120),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (200, 200, 200), thickness=2)
-        elif self.command['inference'] and self.detector is not None:
+        if self.command['inference'] and self.detector is not None:
             self.detector_output, self.network_vis = self.detector.detect_single_image(self.img)
             self.command['inference'] = False
             self.file_output = (self.detector_output, self.ekf)
@@ -141,19 +138,13 @@ class Operate:
             self.command['save_inference'] = False
             
     def draw(self, canvas):
-        canvas.fill((0, 0, 0))
-        text_colour = (200, 200, 200)
+        canvas.blit(self.bg, (0, 0))
+        text_colour = (220, 220, 220)
         v_pad = 40
         h_pad = 20
-        if self.ekf_on:
-            ekf_view = self.ekf.draw_slam_state_pygame(res=(320, 480+v_pad))
-        else:
-            ekf_view = self.ekf.draw_slam_state_pygame(res=(320, 480+v_pad))
+        ekf_view = self.ekf.draw_slam_state(res=(320, 480+v_pad),
+            not_pause = self.ekf_on)
         canvas.blit(ekf_view, (2*h_pad+320, v_pad))
-        
-        # self.draw_pygame_window(canvas, ekf_view, 
-        #                         (2*h_pad+320, v_pad)
-        #                         )
 
         robot_view = cv2.resize(self.aruco_img, (320, 240))
         self.draw_pygame_window(canvas, robot_view, 
@@ -164,7 +155,7 @@ class Operate:
         self.draw_pygame_window(canvas, detector_view, 
                                 position=(h_pad, 240+2*v_pad)
                                 )
-        canvas.blit(self.gui_mask, (0, 0))
+        # canvas.blit(self.gui_mask, (0, 0))
         self.put_caption(canvas, caption='SLAM', position=(2*h_pad+320, v_pad))
         self.put_caption(canvas, caption='Fruit Detector',
                          position=(h_pad, 240+2*v_pad))
@@ -196,8 +187,7 @@ class Operate:
     def put_caption(canvas, caption, position, text_colour=(200, 200, 200)):
         caption_surface = TITLE_FONT.render(caption,
                                           False, text_colour)
-        canvas.blit(caption_surface, (position[0]+5, position[1]-25))
-        
+        canvas.blit(caption_surface, (position[0], position[1]-25))
         
     def update_keyboard(self):
         for event in pygame.event.get():
