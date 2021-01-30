@@ -169,7 +169,7 @@ class Operate:
 
         notifiation = TEXT_FONT.render(self.notification,
                                           False, text_colour)
-        canvas.blit(notifiation, (60, 645))
+        canvas.blit(notifiation, (60, 605))
         self.put_caption(canvas, caption='Notifiation:', position=(45, 600))
 
         time_remain = self.count_down - time.time() + self.start_time
@@ -261,7 +261,7 @@ if __name__ == "__main__":
     TITLE_FONT = pygame.font.Font('pics/8-BitMadness.ttf', 35)
     TEXT_FONT = pygame.font.Font('pics/8-BitMadness.ttf', 40)
     
-    width, height = 760, 760
+    width, height = 760, 680
     canvas = pygame.display.set_mode((width, height))
     pygame.display.set_caption('RVSS 2021 Workshop')
     icon = pygame.image.load('pics/logo.png')
