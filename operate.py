@@ -27,19 +27,18 @@ from network.scripts.detector import Detector
 class Operate:
     def __init__(self, args):
         # Initialise data parameters
-        
         if args.play_data:
             self.pibot = dh.DatasetPlayer("record")
         else:
             self.pibot = PenguinPi(args.ip, args.port)
-        ckpt = "network/scripts/res18_skip_weights.pth"
         # ckpt = ""
-        if ckpt == "":
+        if args.ckpt == "":
             self.detector = None
         else:
-            self.detector = Detector(ckpt, use_gpu=False)
+            self.detector = Detector(args.ckpt, use_gpu=False)
         self.ekf = self.init_ekf(args.calib_dir, args.ip)
-        self.aruco_det = aruco.aruco_detector(self.ekf.robot, marker_length = 0.07)
+        self.aruco_det = aruco.aruco_detector(
+            self.ekf.robot, marker_length = 0.07)
         if args.save_data:
             self.data = dh.DatasetWriter('record')
         else:
@@ -258,6 +257,7 @@ if __name__ == "__main__":
     parser.add_argument("--calib_dir", type=str, default="calibration/param/")
     parser.add_argument("--save_data", action='store_true')
     parser.add_argument("--play_data", action='store_true')
+    parser.add_argument("--ckpt", default='')
     args, _ = parser.parse_known_args()
     
     pygame.font.init() 
