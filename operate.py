@@ -64,7 +64,6 @@ class Operate:
         self.img = np.zeros([240,320,3], dtype=np.uint8)
         self.aruco_img = np.zeros([240,320,3], dtype=np.uint8)
         self.network_vis = cv2.imread('pics/rvss_8bit/detector_splash.png')
-        print(self.network_vis)
         self.bg = pygame.image.load('pics/gui_mask.jpg')
 
 
@@ -260,12 +259,14 @@ if __name__ == "__main__":
     width, height = 700, 660
     canvas = pygame.display.set_mode((width, height))
     pygame.display.set_caption('RVSS 2021 Workshop')
-    pygame.display.set_icon(pygame.image.load('pics/pibot_frame_2.png'))
+    pygame.display.set_icon(pygame.image.load('pics/rvss_8bit/pibot5.png'))
     canvas.fill((0, 0, 0))
     splash = pygame.image.load('pics/rvss_splash.png')
-    pibot_animate = [pygame.image.load('pics/pibot_frame_0.png'),
-                     pygame.image.load('pics/pibot_frame_1.png'),
-                     pygame.image.load('pics/pibot_frame_2.png')]
+    pibot_animate = [pygame.image.load('pics/rvss_8bit/pibot1.png'),
+                     pygame.image.load('pics/rvss_8bit/pibot2.png'),
+                     pygame.image.load('pics/rvss_8bit/pibot3.png'),
+                    pygame.image.load('pics/rvss_8bit/pibot4.png'),
+                     pygame.image.load('pics/rvss_8bit/pibot5.png')]
     pygame.display.update()
 
     start = False
@@ -276,9 +277,9 @@ if __name__ == "__main__":
             if event.type == pygame.KEYDOWN:
                 start = True
         canvas.blit(splash, (0, 0))
-        x_ = min(counter, 470)
-        if x_ < 470:
-            canvas.blit(pibot_animate[counter%6//2], (x_, 455))
+        x_ = min(counter, 600)
+        if x_ < 600:
+            canvas.blit(pibot_animate[counter%10//2], (x_, 565))
             pygame.display.update()
             counter += 2
 
