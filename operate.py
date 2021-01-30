@@ -169,8 +169,8 @@ class Operate:
 
         notifiation = TEXT_FONT.render(self.notification,
                                           False, text_colour)
-        canvas.blit(notifiation, (60, 605))
-        self.put_caption(canvas, caption='Notifiation:', position=(45, 600))
+        canvas.blit(notifiation, (60, 615))
+        self.put_caption(canvas, caption='Notifiation:', position=(pad, 600))
 
         time_remain = self.count_down - time.time() + self.start_time
         if time_remain > 0:
@@ -194,7 +194,7 @@ class Operate:
     def put_caption(canvas, caption, position, text_colour=(200, 200, 200)):
         caption_surface = TITLE_FONT.render(caption,
                                           False, text_colour)
-        canvas.blit(caption_surface, (position[0], position[1]-25))
+        canvas.blit(caption_surface, (position[0]+5, position[1]-25))
         
         
     def update_keyboard(self):
@@ -264,14 +264,12 @@ if __name__ == "__main__":
     width, height = 760, 680
     canvas = pygame.display.set_mode((width, height))
     pygame.display.set_caption('RVSS 2021 Workshop')
-    icon = pygame.image.load('pics/logo.png')
-    pygame.display.set_icon(icon)
+    pygame.display.set_icon(pygame.image.load('pics/pibot_frame_2.png'))
     canvas.fill((0, 0, 0))
-    splash = pygame.image.load('pics/rvss_splash_8_bit.png')
+    splash = pygame.image.load('pics/rvss_splash.png')
     pibot_animate = [pygame.image.load('pics/pibot_frame_0.png'),
                      pygame.image.load('pics/pibot_frame_1.png'),
                      pygame.image.load('pics/pibot_frame_2.png')]
-    # logo = pygame.image.load('pics/logo_8_bit.png')
     pygame.display.update()
 
     start = False
@@ -282,9 +280,9 @@ if __name__ == "__main__":
             if event.type == pygame.KEYDOWN:
                 start = True
         canvas.blit(splash, (0, 0))
-        x_ = min(counter, 1000)
-        if x_ < 1000:
-            canvas.blit(pibot_animate[counter%3], (x_, 545))
+        x_ = min(counter, 510)
+        if x_ < 510:
+            canvas.blit(pibot_animate[counter%6//2], (x_, 465))
             pygame.display.update()
             counter += 2
 
