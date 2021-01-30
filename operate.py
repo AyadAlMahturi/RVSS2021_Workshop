@@ -239,8 +239,8 @@ if __name__ == "__main__":
     pygame.display.set_icon(icon)
     canvas.fill((0, 0, 0))
     splash = pygame.image.load('pics/rvss_splash.png')
+    logo = pygame.image.load('pics/logo_small.png')
     # splash = pygame.transform.scale(splash, (width, height))
-    canvas.blit(splash, (0, 0))
     pygame.display.update()
 
     # print(f'Use the arrow keys to drive the robot.')
@@ -250,10 +250,17 @@ if __name__ == "__main__":
 
     start = False
 
+    counter = 0
     while not start:
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN:
                 start = True
+        canvas.blit(splash, (0, 0))
+        x_ = min(counter, 700)
+        canvas.blit(logo, (x_, 500))
+        pygame.display.update()
+        counter += 1
+
     pygame_font = pygame.font.SysFont('Comic Sans MS', 30)
 
     operate = Operate(args)
