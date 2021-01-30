@@ -144,33 +144,33 @@ class Operate:
     def draw(self, canvas):
         canvas.fill((0, 0, 0))
         text_colour = (200, 200, 200)
-        pad = 40
+        v_pad = 40
+        h_pad = 20
         if self.ekf_on:
-            ekf_view = self.ekf.draw_slam_state(res=(320, 480+pad))
+            ekf_view = self.ekf.draw_slam_state(res=(320, 480+v_pad))
         else:
-            ekf_view = self.ekf.draw_slam_state(res=(320, 480+pad))/2
+            ekf_view = self.ekf.draw_slam_state(res=(320, 480+v_pad))/2
         self.draw_pygame_window(canvas, ekf_view, 
-                                position=(2*pad+320, pad)
+                                position=(2*h_pad+320, v_pad)
                                 )
         robot_view = cv2.resize(self.aruco_img, (320, 240))
         self.draw_pygame_window(canvas, robot_view, 
-                                position=(pad, pad)
+                                position=(h_pad, v_pad)
                                 )
         detector_view = cv2.resize(self.network_vis,
                                    (320, 240), cv2.INTER_NEAREST)
         self.draw_pygame_window(canvas, detector_view, 
-                                position=(pad, 240+2*pad)
+                                position=(h_pad, 240+2*v_pad)
                                 )
         canvas.blit(self.gui_mask, (0, 0))
-        self.put_caption(canvas, caption='SLAM', position=(2*pad+320, pad))
+        self.put_caption(canvas, caption='SLAM', position=(2*h_pad+320, v_pad))
         self.put_caption(canvas, caption='Fruit Detector',
-                         position=(pad, 240+2*pad))
-        self.put_caption(canvas, caption='PiBot Cam', position=(pad, pad))
+                         position=(h_pad, 240+2*v_pad))
+        self.put_caption(canvas, caption='PiBot Cam', position=(h_pad, v_pad))
 
         notifiation = TEXT_FONT.render(self.notification,
                                           False, text_colour)
-        canvas.blit(notifiation, (60, 615))
-        self.put_caption(canvas, caption='Notifiation:', position=(pad, 600))
+        canvas.blit(notifiation, (h_pad+10, 596))
 
         time_remain = self.count_down - time.time() + self.start_time
         if time_remain > 0:
@@ -180,7 +180,7 @@ class Operate:
         else:
             time_remain = ""
         count_down_surface = TEXT_FONT.render(time_remain, False, (50, 50, 50))
-        canvas.blit(count_down_surface, (2*pad+320+5, 530))
+        canvas.blit(count_down_surface, (2*h_pad+320+5, 530))
         return canvas
 
     @staticmethod
@@ -226,8 +226,11 @@ class Operate:
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
                 n_observed_markers = len(self.ekf.taglist)
                 if n_observed_markers == 0:
-                    self.ekf_on = True
-                    self.notification = 'SLAM is running'
+                    if not self.ekf_on:
+                        self.notification = 'SLAM is running'
+                        self.ekf_on = True
+                    else:
+                        self.notification = '> 2 landmarks is required for pausing'
                 elif n_observed_markers < 3:
                     self.notification = '> 2 landmarks is required for pausing'
                 else:
@@ -261,7 +264,7 @@ if __name__ == "__main__":
     TITLE_FONT = pygame.font.Font('pics/8-BitMadness.ttf', 35)
     TEXT_FONT = pygame.font.Font('pics/8-BitMadness.ttf', 40)
     
-    width, height = 760, 680
+    width, height = 700, 660
     canvas = pygame.display.set_mode((width, height))
     pygame.display.set_caption('RVSS 2021 Workshop')
     pygame.display.set_icon(pygame.image.load('pics/pibot_frame_2.png'))
@@ -280,9 +283,9 @@ if __name__ == "__main__":
             if event.type == pygame.KEYDOWN:
                 start = True
         canvas.blit(splash, (0, 0))
-        x_ = min(counter, 510)
-        if x_ < 510:
-            canvas.blit(pibot_animate[counter%6//2], (x_, 465))
+        x_ = min(counter, 470)
+        if x_ < 470:
+            canvas.blit(pibot_animate[counter%6//2], (x_, 455))
             pygame.display.update()
             counter += 2
 
