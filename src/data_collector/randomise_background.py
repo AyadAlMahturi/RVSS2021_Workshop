@@ -26,10 +26,7 @@ def main(args):
             
     texture_catalog = {}
     texture_path = "textures/random"
-    destination_path = os.path.join('dataset', args.dataset_name+'_rand')
-    # os.makedirs(destination_path)
-    # os.makedirs(os.path.join(destination_path, 'images'))
-    # os.makedirs(os.path.join(destination_path, 'labels'))
+    destination_path = os.path.join('dataset', args.dataset_name)
 
     for texture_name in os.listdir(texture_path):
         # image_path = os.path.join(texture_path, texture)
@@ -39,7 +36,6 @@ def main(args):
     for _, var in tqdm(dataset_catalog.items()):
         image = np.array(Image.open(os.path.join(dataset_path, var['image'])))
         label = Image.open(os.path.join(dataset_path, var['label']))
-        # label_np = np.ones_like(image) * np.array(label).reshape(image.shape[0], image.shape[1], 1)
         label_np = np.array(label)
         rand_key = random.choice(texture_catalog.keys())
         texture = Image.open(os.path.join(texture_path, texture_catalog[rand_key]))

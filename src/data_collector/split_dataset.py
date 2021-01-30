@@ -8,6 +8,7 @@ import argparse
 import h5py
 from tqdm import tqdm
 from glob import glob
+
 def main(args):
     dataset_path = os.path.join('dataset', args.sim_dataset)
     if not os.path.exists(dataset_path):
