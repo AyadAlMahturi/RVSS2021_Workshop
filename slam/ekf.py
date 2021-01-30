@@ -2,6 +2,7 @@ import numpy as np
 from mapping_utils import MappingUtils
 import cv2
 import math
+import pygame
 
 class EKF:
     # Implementation of an EKF for SLAM
@@ -20,6 +21,11 @@ class EKF:
         self.P = np.zeros((3,3))
         self.init_lm_cov = 1e3
         self.robot_init_state = None
+        self.lm_pics = []
+        for i in range(1, 11):
+            f_ = f'./pics/rvss_8bit/lm_{i}.png'
+            self.lm_pics.append(pygame.image.load(f_))
+        self.pibot_pic = pygame.image.load(f'./pics/rvss_8bit/pibot_top.png')
         
     def reset(self):
         self.robot.state = np.zeros((3, 1))
@@ -255,6 +261,42 @@ class EKF:
                  text_coor_, font, 0.5, (0, 30, 56), 1, cv2.LINE_AA)
         return canvas
     
+    def draw_slam_state_pygame(self, res = (320, 500)):
+        surface = pygame.Surface(res)
+        surface.fill((213, 213, 213))
+        m2pixel = 80
+        # in meters, 
+        lms_xy = self.markers[:2, :]
+        robot_xy = self.robot.state[:2, 0].reshape((2, 1))
+        lms_xy = lms_xy - robot_xy
+        robot_xy = robot_xy*0
+        robot_theta = self.robot.state[2,0]
+        # plot robot
+        start_point = (robot_xy[0,0], robot_xy[1,0]) 
+        start_point_uv = self.to_im_coor(start_point, res, m2pixel)
+        surface.blit(pygame.transform.rotate(self.pibot_pic, robot_theta*114.59),
+                    start_point_uv)
+        
+        # p_robot = self.P[0:2,0:2]
+        # axes_len,angle = self.make_ellipse(p_robot)
+        # canvas = cv2.ellipse(canvas, start_point_uv, 
+        #             (int(axes_len[0]*m2pixel), int(axes_len[1]*m2pixel)),
+        #             angle, 0, 360, (0, 30, 56), 1)
+        # draw landmards
+        if self.number_landmarks() > 0:
+            for i in range(len(self.markers[0,:])):
+                xy = (lms_xy[0, i], lms_xy[1, i])
+                coor_ = self.to_im_coor(xy, res, m2pixel)
+                surface.blit(self.lm_pics[self.taglist[i]], coor_)
+                # plot covariance
+                # lmi = self.markers[:,i]
+                # Plmi = self.P[3+2*i:3+2*(i+1),3+2*i:3+2*(i+1)]
+                # axes_len, angle = self.make_ellipse(Plmi)
+                # canvas = cv2.ellipse(canvas, coor_, 
+                #     (int(axes_len[0]*m2pixel), int(axes_len[1]*m2pixel)),
+                #     angle, 0, 360, (244, 69, 96), 1)
+        return surface
+
     @staticmethod
     def make_ellipse(P):
         e_vals, e_vecs = np.linalg.eig(P)
