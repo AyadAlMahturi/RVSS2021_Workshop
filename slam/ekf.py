@@ -20,6 +20,15 @@ class EKF:
         self.P = np.zeros((3,3))
         self.init_lm_cov = 1e3
         self.robot_init_state = None
+        
+    def reset(self):
+        self.robot.state = np.zeros((3, 1))
+        self.markers = np.zeros((2,0))
+        self.taglist = []
+        # Covariance matrix
+        self.P = np.zeros((3,3))
+        self.init_lm_cov = 1e3
+        self.robot_init_state = None
 
     def number_landmarks(self):
         return int(self.markers.shape[1])

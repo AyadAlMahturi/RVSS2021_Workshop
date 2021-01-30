@@ -31,52 +31,86 @@ class Operate:
             self.pibot = dh.DatasetPlayer("record")
         else:
             self.pibot = PenguinPi(args.ip, args.port)
-            
-        self.pred = np.zeros([240,320,3], dtype=np.uint8)
-        self.img = np.zeros([240,320,3], dtype=np.uint8)
-        self.aruco_img = np.zeros([240,320,3], dtype=np.uint8)
         ckpt = "network/scripts/res18_skip_weights.pth"
         # ckpt = ""
         if ckpt == "":
             self.detector = None
         else:
             self.detector = Detector(ckpt, use_gpu=False)
-        self.colour_map = np.ones([240,320,3], dtype=np.uint8)
-        self.colour_map *= 100
-        # Set up subsystems
-        camera_matrix, dist_coeffs, scale, baseline = self.getCalibParams(
-            args.calib_dir, args.ip)
-
-        # Control subsystem
-        # SLAM subsystem
-        self.robot = Robot(baseline, scale, camera_matrix, dist_coeffs)
-        self.aruco_det = aruco.aruco_detector(self.robot, marker_length = 0.07)
-        self.slam = EKF(self.robot)
-        
-        # Optionally record input data to a dataset
+        self.ekf = self.init_ekf(args.calib_dir, args.ip)
+        self.aruco_det = aruco.aruco_detector(self.ekf.robot, marker_length = 0.07)
         if args.save_data:
             self.data = dh.DatasetWriter('record')
         else:
             self.data = None
-
         self.output = dh.OutputWriter('workshop_output')
-        self.timer = time.time()
-        self.count_down = 180
-        self.start_time = time.time()
         self.command = {'motion':[0, 0], 
                         'inference': False,
                         'output': False,
                         'save_inference': False}
-        self.close = False
+        self.quit = False
         self.pred_fname = ''
-        self.recover_slam = False
+        self.request_recover_robot = False
+        self.file_output = None
+        self.ekf_on = False
+        self.double_reset_comfirm = 0
         self.notification = 'Press ENTER to start SLAM'
-        self.output_state = None
-        self.slam_on = False
-        # self.debug_flag = False
+        #
+        self.count_down = 180
+        self.start_time = time.time()
+        self.control_clock = time.time()
+        #
+        self.detector_output = np.zeros([240,320], dtype=np.uint8)
+        self.img = np.zeros([240,320,3], dtype=np.uint8)
+        self.aruco_img = np.zeros([240,320,3], dtype=np.uint8)
+        self.network_vis = np.ones([240,320,3], dtype=np.uint8) * 100
 
-    def getCalibParams(self, datadir, ip):
-        # Imports calibration parameters
+    def control(self):       
+        if args.play_data:
+            lv, rv = self.pibot.set_velocity()            
+        else:
+            lv, rv = self.pibot.set_velocity(
+                self.command['motion'])
+        if not self.data is None:
+            self.data.write_keyboard(lv, rv)
+        dt = time.time() - self.control_clock
+        drive_meas = measure.Drive(lv, rv, dt)
+        self.control_clock = time.time()
+        return drive_meas
+
+    def take_pic(self):
+        self.img = self.pibot.get_image()
+        if not self.data is None:
+            self.data.write_image(self.img)
+       
+    def update_slam(self, drive_meas):
+        lms, self.aruco_img = self.aruco_det.detect_marker_positions(self.img)
+        if self.request_recover_robot:
+            is_success = self.ekf.recover_from_pause(lms)
+            if is_success:
+                self.notification = 'Robot pose is successfuly recovered'
+                self.request_recover_robot = False
+            else:
+                self.notification = 'Recover failed, need >2 landmarks!'
+                self.request_recover_robot = True
+                self.ekf_on = False
+        elif self.ekf_on: # and not self.debug_flag:
+            self.ekf.predict(drive_meas)
+            self.ekf.add_landmarks(lms)
+            self.ekf.update(lms)
+
+    def detect_fruit(self):
+        if self.detector is None:
+            warning = "No valid Checkpoint"
+            cv2.putText(self.network_vis, warning, (40, 120),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (200, 200, 200), thickness=2)
+        elif self.command['inference'] and self.detector is not None:
+            self.detector_output, self.network_vis = self.detector.detect_single_image(self.img)
+            self.command['inference'] = False
+            self.file_output = (self.detector_output, self.ekf)
+            self.notification = f'{len(np.unique(self.detector_output))-1} fruit type(s) detected'
+            
+    def init_ekf(self, datadir, ip):
         fileK = "{}intrinsic.txt".format(datadir)
         camera_matrix = np.loadtxt(fileK, delimiter=',')
         fileD = "{}distCoeffs.txt".format(datadir)
@@ -87,137 +121,120 @@ class Operate:
             scale /= 2
         fileB = "{}baseline.txt".format(datadir)  
         baseline = np.loadtxt(fileB, delimiter=',')
-        return camera_matrix, dist_coeffs, scale, baseline
-
-    def control(self):       
-        if args.play_data:
-            lv, rv = self.pibot.set_velocity()            
-        else:
-            motion_command = self.command['motion']
-            lv, rv = self.pibot.set_velocity(motion_command)
-        if not self.data is None:
-            self.data.write_keyboard(lv, rv)
-        dt = time.time() - self.timer
-        drive_meas = measure.Drive(lv, rv, dt)
-        self.timer = time.time()
-        return drive_meas
-
-    def take_pic(self):
-        self.img = self.pibot.get_image()
-        if not self.data is None:
-            self.data.write_image(self.img)
-       
-    def update_slam(self, drive_meas):
-        lms, self.aruco_img = self.aruco_det.detect_marker_positions(self.img)
-        if self.recover_slam:
-            is_success = self.slam.recover_from_pause(lms)
-            if is_success:
-                self.notification = 'Robot pose is successfuly recovered'
-                self.recover_slam = False
-            else:
-                self.notification = 'Recover failed, need >2 landmarks!'
-                self.recover_slam = True
-                self.slam_on = False
-        elif self.slam_on: # and not self.debug_flag:
-            self.slam.predict(drive_meas)
-            self.slam.add_landmarks(lms)
-            self.slam.update(lms)
-
-    def detect_fruit(self):
-        if self.detector is None:
-            warning = "No valid Checkpoint"
-            cv2.putText(self.colour_map, warning, (40, 120),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (200, 200, 200), thickness=2)
-        elif self.command['inference'] and self.detector is not None:
-            self.pred, self.colour_map = self.detector.detect_single_image(self.img)
-            self.command['inference'] = False
-            self.output_state = (self.pred, self.slam)
-            self.notification = f'{len(np.unique(self.pred))-1} fruit type(s) detected'
-
-    def draw(self):        
-        pad = 40
-        bg_rgb = np.array([79, 106, 143]).reshape(1, 1, 3)
-        canvas = np.ones((480+3*pad, 640+3*pad, 3))*bg_rgb
-        canvas = canvas.astype(np.uint8)
-        # 
-        font = cv2.FONT_HERSHEY_SIMPLEX 
-        cv2.putText(canvas, "PiBot Cam", (138, 31),
-                    font, 0.8, (200, 200, 200), thickness=2)
-        cv2.putText(canvas, "SLAM Map", (492, 31),
-                    font, 0.8, (200, 200, 200), thickness=2)
-        cv2.putText(canvas, "Fruit Detection", (110, 310),
-                    font, 0.8, (200, 200, 200), thickness=2)
-        # slam view
-        if self.slam_on:
-            canvas[pad:480+2*pad, 2*pad+320:2*pad+2*320, :] = \
-                self.slam.draw_slam_state(res=(320, 480+pad))
-        else:
-            canvas[pad:480+2*pad, 2*pad+320:2*pad+2*320, :] = \
-                self.slam.draw_slam_state(res=(320, 480+pad))/2
-
-        # robot view
-        canvas[pad:240+pad, pad:320+pad, :] = \
-             cv2.resize(self.aruco_img, (320, 240))
-        # prediction view
-        canvas[(240+2*pad):(240+2*pad+240), pad:(320+pad), :] = \
-                cv2.resize(self.colour_map, (320, 240), cv2.INTER_NEAREST)
-        # out = cv2.cvtColor(canvas.astype(np.uint8), cv2.COLOR_RGB2BGR)
-        return canvas
-
-    def update_keyboard(self):
-        for event in pygame.event.get():
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_UP:
-                self.command['motion'][0] = min(self.command['motion'][0]+1, 1)
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_DOWN:
-                self.command['motion'][0] = max(self.command['motion'][0]-1, -1)
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_LEFT:
-                self.command['motion'][1] = min(self.command['motion'][1]+1, 1)
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_RIGHT:
-                self.command['motion'][1] = max(self.command['motion'][1]-1, -1)
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                self.command['motion'] = [0, 0]
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
-                self.command['inference'] = True
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_s:
-                self.command['output'] = True
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_n:
-                self.command['save_inference'] = True
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
-                self.command['reset_slam'] = True
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
-                n_markers = len(self.slam.taglist)
-                if n_markers == 0:
-                    self.slam_on = True
-                    self.notification = 'SLAM is running'
-                elif n_markers < 3:
-                    self.notification = '> 2 landmarks is required for pausing'
-                else:
-                    if not self.slam_on:
-                        self.recover_slam = True
-                    self.slam_on = not self.slam_on
-            if event.type == pygame.QUIT:
-                self.close = True
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                self.close = True
-        if self.close:
-            pygame.quit()
-            sys.exit()
+        robot = Robot(baseline, scale, camera_matrix, dist_coeffs)
+        return EKF(robot)
 
     def record_data(self):
         if self.command['output']:
-            self.output.write_map(self.slam)
+            self.output.write_map(self.ekf)
             self.notification = 'Map is saved'
             self.command['output'] = False
         if self.command['save_inference']:
-            if self.output_state is not None:
-                self.pred_fname = self.output.write_image(self.output_state[0],
-                                                        self.output_state[1])
+            if self.file_output is not None:
+                self.pred_fname = self.output.write_image(self.file_output[0],
+                                                        self.file_output[1])
                 self.notification = f'Prediction is saved to {operate.pred_fname}'
             else:
                 self.notification = f'No prediction in buffer, save ignored'
             self.command['save_inference'] = False
+            
+    def draw(self, canvas):
+        canvas.fill((79, 106, 143))
+        text_colour = (200, 200, 200)
+        pad = 40
+        if self.ekf_on:
+            ekf_view = self.ekf.draw_slam_state(res=(320, 480+pad))
+        else:
+            ekf_view = self.ekf.draw_slam_state(res=(320, 480+pad))/2
+        self.draw_pygame_window(canvas, ekf_view, 
+                                caption='SLAM',
+                                position=(2*pad+320, pad)
+                                )
+        robot_view = cv2.resize(self.aruco_img, (320, 240))
+        self.draw_pygame_window(canvas, robot_view, 
+                                caption='PiBot Cam',
+                                position=(pad, pad)
+                                )
+        detector_view = cv2.resize(self.network_vis,
+                                   (320, 240), cv2.INTER_NEAREST)
+        self.draw_pygame_window(canvas, detector_view, 
+                                caption='Fruit Detector',
+                                position=(pad, 240+2*pad)
+                                )
         
+        notification_font = pygame.font.SysFont('Comic Sans MS', 30)
+        text_surface = notification_font.render(self.notification,
+                                          False, text_colour)
+        canvas.blit(text_surface, (40, 570))
 
+        time_remain = self.count_down - time.time() + self.start_time
+        if time_remain > 0:
+            time_remain = f'Count Down: {time_remain:03.0f}s'
+        elif int(time_remain)%2 == 0:
+            time_remain = "Time Is Up !!!"
+        else:
+            time_remain = ""
+        count_down_surface = notification_font.render(time_remain, False, (50, 50, 50))
+        canvas.blit(count_down_surface, (2*pad+320+5, 540))
+        return canvas
+
+    @staticmethod
+    def draw_pygame_window(canvas, cv2_img, caption,
+                           position, text_colour=(200, 200, 200)):
+        pygame_font = pygame.font.SysFont('Comic Sans MS', 30)
+        cv2_img = np.rot90(cv2_img)
+        view = pygame.surfarray.make_surface(cv2_img)
+        view = pygame.transform.flip(view, True, False)
+        canvas.blit(view, position)
+        caption_surface = pygame_font.render(caption,
+                                          False, text_colour)
+        canvas.blit(caption_surface, (position[0], position[1]-20))
+        
+        
+    def update_keyboard(self):
+        for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_UP:
+                self.command['motion'][0] = min(self.command['motion'][0]+1, 1)
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_DOWN:
+                self.command['motion'][0] = max(self.command['motion'][0]-1, -1)
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_LEFT:
+                self.command['motion'][1] = min(self.command['motion'][1]+1, 1)
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_RIGHT:
+                self.command['motion'][1] = max(self.command['motion'][1]-1, -1)
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                self.command['motion'] = [0, 0]
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_p:
+                self.command['inference'] = True
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_s:
+                self.command['output'] = True
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_n:
+                self.command['save_inference'] = True
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_r:
+                if self.double_reset_comfirm == 0:
+                    self.notification = 'WARNINIG!!! Press R again confirm CLEAR MAP'
+                    self.double_reset_comfirm +=1
+                elif self.double_reset_comfirm == 1:
+                    self.notification = 'SLAM Map is cleared'
+                    self.double_reset_comfirm = 0
+                    self.ekf.reset()
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
+                n_markers = len(self.ekf.taglist)
+                if n_markers == 0:
+                    self.ekf_on = True
+                    self.notification = 'SLAM is running'
+                elif n_markers < 3:
+                    self.notification = '> 2 landmarks is required for pausing'
+                else:
+                    if not self.ekf_on:
+                        self.request_recover_robot = True
+                    self.ekf_on = not self.ekf_on
+            elif event.type == pygame.QUIT:
+                self.quit = True
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                self.quit = True
+        if self.quit:
+            pygame.quit()
+            sys.exit()
         
 if __name__ == "__main__":
     import argparse
@@ -240,28 +257,20 @@ if __name__ == "__main__":
     canvas.fill((0, 0, 0))
     splash = pygame.image.load('pics/rvss_splash.png')
     logo = pygame.image.load('pics/logo_small.png')
-    # splash = pygame.transform.scale(splash, (width, height))
     pygame.display.update()
-
-    # print(f'Use the arrow keys to drive the robot.')
-    # print('Press P to detect the fruit.')
-    # print('Press S to record the SLAM map.')
-    # print('Press N to record the inference and robot position.')
 
     start = False
 
-    counter = 0
+    counter = -20
     while not start:
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN:
                 start = True
         canvas.blit(splash, (0, 0))
-        x_ = min(counter, 700)
+        x_ = min(counter, 660)
         canvas.blit(logo, (x_, 500))
         pygame.display.update()
         counter += 1
-
-    pygame_font = pygame.font.SysFont('Comic Sans MS', 30)
 
     operate = Operate(args)
 
@@ -273,24 +282,7 @@ if __name__ == "__main__":
         operate.record_data()
         operate.detect_fruit()
         # visualise
-        img_surface = pygame.surfarray.make_surface(operate.draw())
-        img_surface = pygame.transform.flip(img_surface, True, False)
-        img_surface = pygame.transform.rotozoom(img_surface, 90, 1)
-        canvas.blit(img_surface, (0, 0))
-
-        text_surface = pygame_font.render(operate.notification, False, (200, 200, 200))
-        canvas.blit(text_surface, (40, 570))
-
-        time_remain = operate.count_down - time.time() + operate.start_time
-        if time_remain > 0:
-            time_remain = f'Count Down: {time_remain:03.0f}s'
-        elif int(time_remain)%2 == 0:
-            time_remain = "Time Is Up !!!"
-        else:
-            time_remain = ""
-        count_down_surface = pygame_font.render(time_remain, False, (50, 50, 50))
-        canvas.blit(count_down_surface, (470, 60))
-        #
+        operate.draw(canvas)
         pygame.display.update()
 
 
