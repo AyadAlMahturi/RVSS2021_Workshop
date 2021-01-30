@@ -92,11 +92,11 @@ class Operate:
             is_success = self.ekf.recover_from_pause(lms)
             if is_success:
                 self.notification = 'Robot pose is successfuly recovered'
-                self.request_recover_robot = False
+                self.ekf_on = True
             else:
                 self.notification = 'Recover failed, need >2 landmarks!'
-                self.request_recover_robot = True
                 self.ekf_on = False
+            self.request_recover_robot = False
         elif self.ekf_on: # and not self.debug_flag:
             self.ekf.predict(drive_meas)
             self.ekf.add_landmarks(lms)
@@ -217,23 +217,27 @@ class Operate:
                 self.command['save_inference'] = True
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_r:
                 if self.double_reset_comfirm == 0:
-                    self.notification = 'WARNINIG!!! Press R again confirm CLEAR MAP'
+                    self.notification = 'Press again to confirm CLEAR MAP'
                     self.double_reset_comfirm +=1
                 elif self.double_reset_comfirm == 1:
                     self.notification = 'SLAM Map is cleared'
                     self.double_reset_comfirm = 0
                     self.ekf.reset()
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
-                n_markers = len(self.ekf.taglist)
-                if n_markers == 0:
+                n_observed_markers = len(self.ekf.taglist)
+                if n_observed_markers == 0:
                     self.ekf_on = True
                     self.notification = 'SLAM is running'
-                elif n_markers < 3:
+                elif n_observed_markers < 3:
                     self.notification = '> 2 landmarks is required for pausing'
                 else:
                     if not self.ekf_on:
                         self.request_recover_robot = True
                     self.ekf_on = not self.ekf_on
+                    if self.ekf_on:
+                        self.notification = 'SLAM is running'
+                    else:
+                        self.notification = 'SLAM is paused'
             elif event.type == pygame.QUIT:
                 self.quit = True
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
@@ -264,21 +268,25 @@ if __name__ == "__main__":
     pygame.display.set_icon(icon)
     canvas.fill((0, 0, 0))
     splash = pygame.image.load('pics/rvss_splash_8_bit.png')
-    logo = pygame.image.load('pics/logo_8_bit.png')
+    pibot_animate = [pygame.image.load('pics/pibot_frame_0.png'),
+                     pygame.image.load('pics/pibot_frame_1.png'),
+                     pygame.image.load('pics/pibot_frame_2.png')]
+    # logo = pygame.image.load('pics/logo_8_bit.png')
     pygame.display.update()
 
     start = False
 
-    counter = -20
+    counter = 40
     while not start:
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN:
                 start = True
         canvas.blit(splash, (0, 0))
-        x_ = min(counter, 660)
-        canvas.blit(logo, (x_, 660))
-        pygame.display.update()
-        counter += 1
+        x_ = min(counter, 1000)
+        if x_ < 1000:
+            canvas.blit(pibot_animate[counter%3], (x_, 545))
+            pygame.display.update()
+            counter += 2
 
     operate = Operate(args)
 
