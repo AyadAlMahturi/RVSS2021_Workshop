@@ -101,16 +101,13 @@ class EKF:
                 if lm.tag in self.taglist:
                     lm_new = np.concatenate((lm_new, lm.position), axis=1)
                     tag.append(int(lm.tag))
-                    lm_idx = np.where(self.taglist == lm.tag)[0][0]
+                    lm_idx = self.taglist.index(lm.tag)
                     lm_prev = np.concatenate((lm_prev,self.markers[:,lm_idx].reshape(2, 1)), axis=1)
             if int(lm_new.shape[1]) > 2:
                 R,t = self.umeyama(lm_new, lm_prev)
-                # R = R.transpose()
-                # t = -R@t
-                theta = math.atan2(R[0][1],R[0][0])
-                print(list(t[:2]), theta)
+                theta = math.atan2(R[1][0], R[0][0])
+                # print(list(t[:2]), theta)
                 self.robot.state[:2]=t[:2]
-                # self.robot.state[1]=t[1]
                 self.robot.state[2]=theta
                 return True
             else:
@@ -153,6 +150,40 @@ class EKF:
             self.P = np.concatenate((self.P, np.zeros((self.P.shape[0], 2))), axis=1)
             self.P[-2,-2] = self.init_lm_cov**2
             self.P[-1,-1] = self.init_lm_cov**2
+            
+    @staticmethod
+    def umeyama(from_points, to_points):
+
+    
+        assert len(from_points.shape) == 2, \
+            "from_points must be a m x n array"
+        assert from_points.shape == to_points.shape, \
+            "from_points and to_points must have the same shape"
+        
+        N = from_points.shape[1]
+        m = 2
+        
+        mean_from = from_points.mean(axis = 1).reshape((2,1))
+        mean_to = to_points.mean(axis = 1).reshape((2,1))
+        
+        delta_from = from_points - mean_from # N x m
+        delta_to = to_points - mean_to       # N x m
+        
+        cov_matrix = delta_to @ delta_from.T / N
+        
+        U, d, V_t = np.linalg.svd(cov_matrix, full_matrices = True)
+        cov_rank = np.linalg.matrix_rank(cov_matrix)
+        S = np.eye(m)
+        
+        if cov_rank >= m - 1 and np.linalg.det(cov_matrix) < 0:
+            S[m-1, m-1] = -1
+        elif cov_rank < m-1:
+            raise ValueError("colinearility detected in covariance matrix:\n{}".format(cov_matrix))
+        
+        R = U.dot(S).dot(V_t)
+        t = mean_to - R.dot(mean_from)
+    
+        return R, t
 
     # Plotting functions
     # ------------------
@@ -194,7 +225,7 @@ class EKF:
         axes_len,angle = self.make_ellipse(p_robot)
         canvas = cv2.ellipse(canvas, start_point_uv, 
                     (int(axes_len[0]*m2pixel), int(axes_len[1]*m2pixel)),
-                    angle, 0, 360, (244, 69, 96), 1)
+                    angle, 0, 360, (0, 30, 56), 1)
         # draw landmards
         if self.number_landmarks() > 0:
             for i in range(len(self.markers[0,:])):
@@ -229,84 +260,4 @@ class EKF:
             angle = 0
         return (axes_len[0], axes_len[1]), angle
 
-    @staticmethod
-    def umeyama(from_points, to_points):
-
-    
-        assert len(from_points.shape) == 2, \
-            "from_points must be a m x n array"
-        assert from_points.shape == to_points.shape, \
-            "from_points and to_points must have the same shape"
-        
-        N = from_points.shape[1]
-        m = 2
-        
-        mean_from = from_points.mean(axis = 1).reshape((2,1))
-        mean_to = to_points.mean(axis = 1).reshape((2,1))
-        
-        delta_from = from_points - mean_from # N x m
-        delta_to = to_points - mean_to       # N x m
-        
-        sigma_from = (delta_from * delta_from).sum(axis = 1).mean()
-        sigma_to = (delta_to * delta_to).sum(axis = 1).mean()
-        
-        cov_matrix = delta_to @ delta_from.T / N
-        
-        U, d, V_t = np.linalg.svd(cov_matrix, full_matrices = True)
-        cov_rank = np.linalg.matrix_rank(cov_matrix)
-        S = np.eye(m)
-        
-        if cov_rank >= m - 1 and np.linalg.det(cov_matrix) < 0:
-            S[m-1, m-1] = -1
-        elif cov_rank < m-1:
-            raise ValueError("colinearility detected in covariance matrix:\n{}".format(cov_matrix))
-        
-        R = U.dot(S).dot(V_t)
-        # c = (d * S.diagonal()).sum() / sigma_from
-        t = mean_to - R.dot(mean_from)
-    
-        return R, t
-    
-    @staticmethod
-    def umeyama_alignment(x, y, with_scale = False):
-
-        if x.shape != y.shape:
-            raise GeometryException("data matrices must have the same shape")
-
-        # m = dimension, n = nr. of data points
-        m, n = x.shape
-
-        # means, eq. 34 and 35
-        mean_x = x.mean(axis=1)
-        mean_y = y.mean(axis=1)
-
-        # variance, eq. 36
-        # "transpose" for column subtraction
-        sigma_x = 1.0 / n * (np.linalg.norm(x - mean_x[:, np.newaxis])**2)
-
-        # covariance matrix, eq. 38
-        outer_sum = np.zeros((m, m))
-        for i in range(n):
-            outer_sum += np.outer((y[:, i] - mean_y), (x[:, i] - mean_x))
-        cov_xy = np.multiply(1.0 / n, outer_sum)
-
-        # SVD (text betw. eq. 38 and 39)
-        u, d, v = np.linalg.svd(cov_xy)
-        if np.count_nonzero(d > np.finfo(d.dtype).eps) < m - 1:
-            raise GeometryException("Degenerate covariance rank, "
-                                    "Umeyama alignment is not possible")
-
-        # S matrix, eq. 43
-        s = np.eye(m)
-        if np.linalg.det(u) * np.linalg.det(v) < 0.0:
-            # Ensure a RHS coordinate system (Kabsch algorithm).
-            s[m - 1, m - 1] = -1
-
-        # rotation, eq. 40
-        r = u.dot(s).dot(v)
-
-        # scale & translation, eq. 42 and 41
-        c = 1 / sigma_x * np.trace(np.diag(d).dot(s)) if with_scale else 1.0
-        t = mean_y - np.multiply(c, r.dot(mean_x))
-
-        return r, t, c
+ 

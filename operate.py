@@ -71,9 +71,9 @@ class Operate:
         self.pred_fname = ''
         self.recover_slam = False
         self.notification = 'Press ENTER to start SLAM'
-        self.slam_switch_count = 0
         self.output_state = None
-        self.debug_flag = False
+        self.slam_on = False
+        # self.debug_flag = False
 
     def getCalibParams(self, datadir, ip):
         # Imports calibration parameters
@@ -110,20 +110,18 @@ class Operate:
     def update_slam(self, drive_meas):
         lms, self.aruco_img = self.aruco_det.detect_marker_positions(self.img)
         if self.recover_slam:
-            self.slam_on = False
             is_success = self.slam.recover_from_pause(lms)
             if is_success:
                 self.notification = 'Robot pose is successfuly recovered'
-                self.debug_flag  = True
+                self.recover_slam = False
             else:
-                self.notification = 'Recover failed, need >= 3 landmarks!'
-            self.recover_slam = False
-
-        if self.slam_switch_count%2 and not self.debug_flag:
+                self.notification = 'Recover failed, need >2 landmarks!'
+                self.recover_slam = True
+                self.slam_on = False
+        elif self.slam_on: # and not self.debug_flag:
             self.slam.predict(drive_meas)
             self.slam.add_landmarks(lms)
             self.slam.update(lms)
-            self.slam_on = True
 
     def detect_fruit(self):
         if self.detector is None:
@@ -135,7 +133,6 @@ class Operate:
             self.command['inference'] = False
             self.output_state = (self.pred, self.slam)
             self.notification = f'{len(np.unique(self.pred))-1} fruit type(s) detected'
-        
 
     def draw(self):        
         pad = 40
@@ -151,7 +148,7 @@ class Operate:
         cv2.putText(canvas, "Fruit Detection", (110, 310),
                     font, 0.8, (200, 200, 200), thickness=2)
         # slam view
-        if self.slam_switch_count%2:
+        if self.slam_on:
             canvas[pad:480+2*pad, 2*pad+320:2*pad+2*320, :] = \
                 self.slam.draw_slam_state(res=(320, 480+pad))
         else:
@@ -188,13 +185,16 @@ class Operate:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
                 self.command['reset_slam'] = True
             if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
-                if (self.slam_switch_count)>0 and (not self.slam_switch_count%2):
-                    self.recover_slam = True
-                if not self.slam_switch_count%2:
+                n_markers = len(self.slam.taglist)
+                if n_markers == 0:
+                    self.slam_on = True
                     self.notification = 'SLAM is running'
+                elif n_markers < 3:
+                    self.notification = '> 2 landmarks is required for pausing'
                 else:
-                    self.notification = 'SLAM is paused'
-                self.slam_switch_count += 1
+                    if not self.slam_on:
+                        self.recover_slam = True
+                    self.slam_on = not self.slam_on
             if event.type == pygame.QUIT:
                 self.close = True
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
@@ -281,8 +281,8 @@ if __name__ == "__main__":
             time_remain = "Time Is Up !!!"
         else:
             time_remain = ""
-        count_down_surface = pygame_font.render(time_remain, False, (200, 200, 200))
-        canvas.blit(count_down_surface, (470, 570))
+        count_down_surface = pygame_font.render(time_remain, False, (50, 50, 50))
+        canvas.blit(count_down_surface, (470, 60))
         #
         pygame.display.update()
 
