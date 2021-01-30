@@ -274,7 +274,7 @@ class EKF:
         # plot robot
         start_point = (robot_xy[0,0], robot_xy[1,0]) 
         start_point_uv = self.to_im_coor(start_point, res, m2pixel)
-        surface.blit(pygame.transform.rotate(self.pibot_pic, robot_theta*114.59),
+        surface.blit(pygame.transform.rotate(self.pibot_pic, robot_theta*114.59+90),
                     start_point_uv)
         
         # p_robot = self.P[0:2,0:2]
@@ -287,7 +287,7 @@ class EKF:
             for i in range(len(self.markers[0,:])):
                 xy = (lms_xy[0, i], lms_xy[1, i])
                 coor_ = self.to_im_coor(xy, res, m2pixel)
-                surface.blit(self.lm_pics[self.taglist[i]], coor_)
+                surface.blit(self.lm_pics[self.taglist[i]-1], coor_)
                 # plot covariance
                 # lmi = self.markers[:,i]
                 # Plmi = self.P[3+2*i:3+2*(i+1),3+2*i:3+2*(i+1)]
