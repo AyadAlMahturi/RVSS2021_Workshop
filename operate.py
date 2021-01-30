@@ -23,6 +23,7 @@ sys.path.insert(0,"{}/network/scripts".format(os.getcwd()))
 from network.scripts.detector import Detector
 
 
+
 class Operate:
     def __init__(self, args):
         # Initialise data parameters
@@ -64,6 +65,8 @@ class Operate:
         self.img = np.zeros([240,320,3], dtype=np.uint8)
         self.aruco_img = np.zeros([240,320,3], dtype=np.uint8)
         self.network_vis = np.ones([240,320,3], dtype=np.uint8) * 100
+        self.gui_mask = pygame.image.load('pics/gui_mask.png')
+
 
     def control(self):       
         if args.play_data:
@@ -139,7 +142,7 @@ class Operate:
             self.command['save_inference'] = False
             
     def draw(self, canvas):
-        canvas.fill((79, 106, 143))
+        canvas.fill((0, 0, 0))
         text_colour = (200, 200, 200)
         pad = 40
         if self.ekf_on:
@@ -147,25 +150,27 @@ class Operate:
         else:
             ekf_view = self.ekf.draw_slam_state(res=(320, 480+pad))/2
         self.draw_pygame_window(canvas, ekf_view, 
-                                caption='SLAM',
                                 position=(2*pad+320, pad)
                                 )
         robot_view = cv2.resize(self.aruco_img, (320, 240))
         self.draw_pygame_window(canvas, robot_view, 
-                                caption='PiBot Cam',
                                 position=(pad, pad)
                                 )
         detector_view = cv2.resize(self.network_vis,
                                    (320, 240), cv2.INTER_NEAREST)
         self.draw_pygame_window(canvas, detector_view, 
-                                caption='Fruit Detector',
                                 position=(pad, 240+2*pad)
                                 )
-        
-        notification_font = pygame.font.SysFont('Comic Sans MS', 30)
-        text_surface = notification_font.render(self.notification,
+        canvas.blit(self.gui_mask, (0, 0))
+        self.put_caption(canvas, caption='SLAM', position=(2*pad+320, pad))
+        self.put_caption(canvas, caption='Fruit Detector',
+                         position=(pad, 240+2*pad))
+        self.put_caption(canvas, caption='PiBot Cam', position=(pad, pad))
+
+        notifiation = TEXT_FONT.render(self.notification,
                                           False, text_colour)
-        canvas.blit(text_surface, (40, 570))
+        canvas.blit(notifiation, (60, 645))
+        self.put_caption(canvas, caption='Notifiation:', position=(45, 600))
 
         time_remain = self.count_down - time.time() + self.start_time
         if time_remain > 0:
@@ -174,21 +179,22 @@ class Operate:
             time_remain = "Time Is Up !!!"
         else:
             time_remain = ""
-        count_down_surface = notification_font.render(time_remain, False, (50, 50, 50))
-        canvas.blit(count_down_surface, (2*pad+320+5, 540))
+        count_down_surface = TEXT_FONT.render(time_remain, False, (50, 50, 50))
+        canvas.blit(count_down_surface, (2*pad+320+5, 530))
         return canvas
 
     @staticmethod
-    def draw_pygame_window(canvas, cv2_img, caption,
-                           position, text_colour=(200, 200, 200)):
-        pygame_font = pygame.font.SysFont('Comic Sans MS', 30)
+    def draw_pygame_window(canvas, cv2_img, position):
         cv2_img = np.rot90(cv2_img)
         view = pygame.surfarray.make_surface(cv2_img)
         view = pygame.transform.flip(view, True, False)
         canvas.blit(view, position)
-        caption_surface = pygame_font.render(caption,
+    
+    @staticmethod
+    def put_caption(canvas, caption, position, text_colour=(200, 200, 200)):
+        caption_surface = TITLE_FONT.render(caption,
                                           False, text_colour)
-        canvas.blit(caption_surface, (position[0], position[1]-20))
+        canvas.blit(caption_surface, (position[0], position[1]-25))
         
         
     def update_keyboard(self):
@@ -248,8 +254,10 @@ if __name__ == "__main__":
     args, _ = parser.parse_known_args()
     
     pygame.font.init() 
+    TITLE_FONT = pygame.font.Font('pics/8-BitMadness.ttf', 35)
+    TEXT_FONT = pygame.font.Font('pics/8-BitMadness.ttf', 40)
     
-    width, height = 760, 600
+    width, height = 760, 760
     canvas = pygame.display.set_mode((width, height))
     pygame.display.set_caption('RVSS 2021 Workshop')
     icon = pygame.image.load('pics/logo.png')
@@ -268,7 +276,7 @@ if __name__ == "__main__":
                 start = True
         canvas.blit(splash, (0, 0))
         x_ = min(counter, 660)
-        canvas.blit(logo, (x_, 500))
+        canvas.blit(logo, (x_, 660))
         pygame.display.update()
         counter += 1
 
