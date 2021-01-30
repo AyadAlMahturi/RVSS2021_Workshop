@@ -263,8 +263,8 @@ if __name__ == "__main__":
     icon = pygame.image.load('pics/logo.png')
     pygame.display.set_icon(icon)
     canvas.fill((0, 0, 0))
-    splash = pygame.image.load('pics/rvss_splash.png')
-    logo = pygame.image.load('pics/logo_small.png')
+    splash = pygame.image.load('pics/rvss_splash_8_bit.png')
+    logo = pygame.image.load('pics/logo_8_bit.png')
     pygame.display.update()
 
     start = False
