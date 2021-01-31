@@ -2,11 +2,11 @@ import numpy as np
 import cv2 
 import os, sys
 import time
+
 # Import integration components
 sys.path.insert(0, "{}/integration".format(os.getcwd()))
 from control.pibot import PenguinPi
 import integration.DatasetHandler as dh
-# import control.keyboardControl as Keyboard
 import pygame
 
 # Import SLAM components

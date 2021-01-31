@@ -8,8 +8,10 @@ class EKF:
     # Implementation of an EKF for SLAM
     # The state is ordered as [x; y; theta; l1x; l1y; ...; lnx; lny]
 
+    ##########################################
     # Utility
-    # -------
+    # Add outlier rejection here
+    ##########################################
 
     def __init__(self, robot):
         # State components
@@ -54,10 +56,33 @@ class EKF:
         if self.number_landmarks() > 0:
             utils = MappingUtils(self.markers, self.P[3:,3:], self.taglist)
             utils.save(fname)
+
+    def recover_from_pause(self, measurements):
+    if not measurements:
+        return False
+    else:
+        lm_new = np.zeros((2,0))
+        lm_prev = np.zeros((2,0))
+        tag = []
+        for lm in measurements:
+            if lm.tag in self.taglist:
+                lm_new = np.concatenate((lm_new, lm.position), axis=1)
+                tag.append(int(lm.tag))
+                lm_idx = self.taglist.index(lm.tag)
+                lm_prev = np.concatenate((lm_prev,self.markers[:,lm_idx].reshape(2, 1)), axis=1)
+        if int(lm_new.shape[1]) > 2:
+            R,t = self.umeyama(lm_new, lm_prev)
+            theta = math.atan2(R[1][0], R[0][0])
+            self.robot.state[:2]=t[:2]
+            self.robot.state[2]=theta
+            return True
+        else:
+            return False
         
-    
+    ##########################################
     # EKF functions
-    # -------------
+    # Tune your SLAM algorithm here
+    # ########################################
 
     def predict(self, raw_drive_meas):
         # The prediction step of EKF
@@ -88,7 +113,6 @@ class EKF:
         for i in range(len(measurements)):
             R[2*i:2*i+2,2*i:2*i+2] = measurements[i].covariance
 
-
         # Compute own measurements
         z_hat = self.robot.measure(self.markers, idx_list)
         z_hat = z_hat.reshape((-1,1),order="F")
@@ -104,31 +128,6 @@ class EKF:
         self.P = (np.eye(x.shape[0]) - K @ H) @ self.P
         self.set_state_vector(x)
 
-        # print(self.P)
-        # print("MarkerMeasurement residual:\n", y)
-    
-    def recover_from_pause(self, measurements):
-        if not measurements:
-            return False
-        else:
-            lm_new = np.zeros((2,0))
-            lm_prev = np.zeros((2,0))
-            tag = []
-            for lm in measurements:
-                if lm.tag in self.taglist:
-                    lm_new = np.concatenate((lm_new, lm.position), axis=1)
-                    tag.append(int(lm.tag))
-                    lm_idx = self.taglist.index(lm.tag)
-                    lm_prev = np.concatenate((lm_prev,self.markers[:,lm_idx].reshape(2, 1)), axis=1)
-            if int(lm_new.shape[1]) > 2:
-                R,t = self.umeyama(lm_new, lm_prev)
-                theta = math.atan2(R[1][0], R[0][0])
-                # print(list(t[:2]), theta)
-                self.robot.state[:2]=t[:2]
-                self.robot.state[2]=theta
-                return True
-            else:
-                return False
 
     def state_transition(self, raw_drive_meas):
         n = self.number_landmarks()*2 + 3
@@ -167,7 +166,11 @@ class EKF:
             self.P = np.concatenate((self.P, np.zeros((self.P.shape[0], 2))), axis=1)
             self.P[-2,-2] = self.init_lm_cov**2
             self.P[-1,-1] = self.init_lm_cov**2
-            
+
+    ##########################################
+    ##########################################
+    ##########################################
+
     @staticmethod
     def umeyama(from_points, to_points):
 

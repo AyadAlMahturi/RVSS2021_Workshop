@@ -76,8 +76,8 @@ if __name__ == "__main__":
     pygame.display.set_caption('Calibration')
     canvas.fill((0, 0, 0))
     pygame.display.update()
+    
     # collect data
-
     print('Collecting {} images for camera calibration.'.format(images_to_collect))
     print('Press ENTER to capture image.')
     while not calib.finish:
@@ -93,8 +93,4 @@ if __name__ == "__main__":
         pygame.display.update()
     print('Finished image collection.\n')
 
-    # calibrate camera
-    # print('Calibrating camera...')
-    # camera_calibration(dataDir)
-    # print('Finished camera calibration.')
 
