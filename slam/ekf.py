@@ -58,26 +58,26 @@ class EKF:
             utils.save(fname)
 
     def recover_from_pause(self, measurements):
-    if not measurements:
-        return False
-    else:
-        lm_new = np.zeros((2,0))
-        lm_prev = np.zeros((2,0))
-        tag = []
-        for lm in measurements:
-            if lm.tag in self.taglist:
-                lm_new = np.concatenate((lm_new, lm.position), axis=1)
-                tag.append(int(lm.tag))
-                lm_idx = self.taglist.index(lm.tag)
-                lm_prev = np.concatenate((lm_prev,self.markers[:,lm_idx].reshape(2, 1)), axis=1)
-        if int(lm_new.shape[1]) > 2:
-            R,t = self.umeyama(lm_new, lm_prev)
-            theta = math.atan2(R[1][0], R[0][0])
-            self.robot.state[:2]=t[:2]
-            self.robot.state[2]=theta
-            return True
-        else:
+        if not measurements:
             return False
+        else:
+            lm_new = np.zeros((2,0))
+            lm_prev = np.zeros((2,0))
+            tag = []
+            for lm in measurements:
+                if lm.tag in self.taglist:
+                    lm_new = np.concatenate((lm_new, lm.position), axis=1)
+                    tag.append(int(lm.tag))
+                    lm_idx = self.taglist.index(lm.tag)
+                    lm_prev = np.concatenate((lm_prev,self.markers[:,lm_idx].reshape(2, 1)), axis=1)
+            if int(lm_new.shape[1]) > 2:
+                R,t = self.umeyama(lm_new, lm_prev)
+                theta = math.atan2(R[1][0], R[0][0])
+                self.robot.state[:2]=t[:2]
+                self.robot.state[2]=theta
+                return True
+            else:
+                return False
         
     ##########################################
     # EKF functions
