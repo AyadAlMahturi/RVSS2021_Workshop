@@ -25,6 +25,8 @@ class EKF:
         for i in range(1, 11):
             f_ = f'./pics/rvss_8bit/lm_{i}.png'
             self.lm_pics.append(pygame.image.load(f_))
+        f_ = f'./pics/rvss_8bit/lm_unknown.png'
+        self.lm_pics.append(pygame.image.load(f_))
         self.pibot_pic = pygame.image.load(f'./pics/rvss_8bit/pibot_top.png')
         
     def reset(self):
@@ -252,8 +254,12 @@ class EKF:
             for i in range(len(self.markers[0,:])):
                 xy = (lms_xy[0, i], lms_xy[1, i])
                 coor_ = self.to_im_coor(xy, res, m2pixel)
-                surface.blit(self.lm_pics[self.taglist[i]-1],
-                 (coor_[0]-5, coor_[1]-5))
+                try:
+                    surface.blit(self.lm_pics[self.taglist[i]-1],
+                    (coor_[0]-5, coor_[1]-5))
+                except IndexError:
+                    surface.blit(self.lm_pics[-1],
+                    (coor_[0]-5, coor_[1]-5))
         return surface
 
     @staticmethod
